@@ -9,8 +9,13 @@ flake8 = "*"
 pre-commit = "*"
 pytest = "*"
 pytest-cov = "*"
+rope = "*"
+aws-sam-cli = "*"
+mypy = "*"
+gitlabci-local = "*"
 
 [packages]
+boto3 = "*"
 
 [requires]
 python_version = "3.7"
