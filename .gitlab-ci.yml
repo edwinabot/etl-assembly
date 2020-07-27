@@ -6,6 +6,6 @@ test:
   image: python:3.7-buster
   script:
   - apt-get update -qy
-  - apt-get install -y python-dev python-pip pipenv
+  - apt-get install -y pipenv
   - pipenv install --dev
   - pipenv run pytest

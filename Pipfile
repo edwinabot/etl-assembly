@@ -13,9 +13,12 @@ rope = "*"
 aws-sam-cli = "*"
 mypy = "*"
 gitlabci-local = "*"
+moto = "*"
 
 [packages]
 boto3 = "*"
+pymisp = "*"
+trustar = "*"
 
 [requires]
 python_version = "3.7"
