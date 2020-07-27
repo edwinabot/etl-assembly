@@ -1,9 +1,10 @@
+import json
+
 from dataclasses import dataclass
 
 import boto3
 
 import config
-from fixture import fixtures
 from logs import get_logger
 
 logger = get_logger("database")
@@ -51,11 +52,14 @@ def create_table(table_definition: TableDefinition):
 
 
 def create_tables(tables: list):
-    dynamodb_client = boto3.client("dynamodb")
-    existing_tables = dynamodb_client.list_tables()["TableNames"]
-    for table in tables:
-        if table.name not in existing_tables:
-            create_table(table)
+    dynamodb = get_dynamo_connection()
+    existing_tables = [t.name for t in dynamodb.tables.all()]
+    if existing_tables:
+        new_tables = [t for t in tables if t.name not in existing_tables]
+    else:
+        new_tables = tables
+    for table in new_tables:
+        create_table(table)
 
 
 def get_table(table_definition: TableDefinition):
@@ -80,12 +84,17 @@ def load_fixture_data(table_definition: TableDefinition, fixture: list):
         logger.error(f"Unable to load fixture {ex}")
 
 
-def load_fixtures(tables):
+def load_fixtures(tables: list, fixture_path: str):
     for table in tables:
         try:
-            load_fixture_data(table, fixtures[table.name])
-        except Exception:
-            pass
+            with open(fixture_path, "r") as fixture_file:
+                fixtures = json.load(fixture_file)
+                load_fixture_data(table, fixtures[table.name])
+        except FileNotFoundError:
+            logger.error("Unable to locate fixture.json file")
+            raise
+        except Exception as ex:
+            logger.error(ex)
 
 
 TemplateTable = TableDefinition(
@@ -102,8 +111,8 @@ UserConfTable = TableDefinition(
     provisioned_throughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
 )
 
-JobConfigTable = TableDefinition(
-    name="etl_assembly_job_configs",
+JobTable = TableDefinition(
+    name="etl_assembly_jobs",
     key_schema=[{"AttributeName": "id", "KeyType": "HASH"}],  # Partition key
     attribute_deffinition=[{"AttributeName": "id", "AttributeType": "S"}],
     provisioned_throughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},

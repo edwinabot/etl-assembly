@@ -1,4 +1,4 @@
-from database import TemplateTable, UserConfTable, JobConfigTable, get_table
+from database import TemplateTable, UserConfTable, JobTable, get_table
 from logs import get_logger
 
 logger = get_logger(__name__)
@@ -35,12 +35,10 @@ class ActiveRecordMixin:
 class Template(ActiveRecordMixin):
     table_definition = TemplateTable
 
-    def __init__(self, _id, source, destination, extract, transform, load):
+    def __init__(self, _id, extract, transform, load):
         self.extract = extract
         self.transform = transform
         self.load = load
-        self.source = source
-        self.destination = destination
         self.id = _id
 
     @classmethod
@@ -48,8 +46,6 @@ class Template(ActiveRecordMixin):
         item = super()._get_by_id(_id)
         return cls(
             _id=item["id"],
-            source=item["source"],
-            destination=item["destination"],
             extract=item["extract"],
             transform=item["transform"],
             load=item["load"],
@@ -61,6 +57,7 @@ class UserConf(ActiveRecordMixin):
     UserConf is a lazy object that contains all user related data
     to configurations of a Job.
     """
+
     table_definition = UserConfTable
 
     def __init__(
@@ -116,7 +113,6 @@ class UserConf(ActiveRecordMixin):
 
     @property
     def source_secrets(self):
-        # Mock object
         # We will retrieve from database everytime...
         # I don't want this to linger in memory too much time
         response = self._table.get_item(Key={"id": self._id})
@@ -125,7 +121,6 @@ class UserConf(ActiveRecordMixin):
 
     @property
     def destination_secrets(self):
-        # Mock object
         # We will retrieve from database everytime...
         # I don't want this to linger in memory too much time
         response = self._table.get_item(Key={"id": self._id})
@@ -145,8 +140,8 @@ class UserConf(ActiveRecordMixin):
         )
 
 
-class JobConfig(ActiveRecordMixin):
-    table_definition = JobConfigTable
+class Job(ActiveRecordMixin):
+    table_definition = JobTable
 
     def __init__(self, _id, template, user_conf):
         if not all((_id, user_conf, template)):
