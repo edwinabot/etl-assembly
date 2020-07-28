@@ -1,3 +1,6 @@
+from typing import Union
+from datetime import datetime
+
 from database import TemplateTable, UserConfTable, JobTable, get_table
 from logs import get_logger
 
@@ -143,7 +146,13 @@ class UserConf(ActiveRecordMixin):
 class Job(ActiveRecordMixin):
     table_definition = JobTable
 
-    def __init__(self, _id, template, user_conf):
+    def __init__(
+        self,
+        _id,
+        template: Union[str, Template],
+        user_conf: Union[str, UserConf],
+        last_run: Union[str, datetime],
+    ):
         if not all((_id, user_conf, template)):
             raise ValueError("Arguments can't be None")
         if not isinstance(template, (Template, str)):
@@ -154,6 +163,7 @@ class Job(ActiveRecordMixin):
         self._id = _id
         self._template = template
         self._user_conf = user_conf
+        self._last_run = last_run
 
     @property
     def id(self):
@@ -178,6 +188,24 @@ class Job(ActiveRecordMixin):
             self._user_conf = UserConf.get(_id=self._user_conf)
         return self._user_conf
 
+    @property
+    def last_run(self):
+        if self._last_run and isinstance(self._last_run, str):
+            self._last_run = datetime.strptime(self._last_run, "%Y-%m-%dT%H:%M:%S%z")
+        return self._last_run
+
+    @last_run.setter
+    def last_run(self, new_datetime: datetime):
+        """
+        Set a new datetime for last_run
+        """
+
+        # check that new datetime is more recent that last run
+        if self.last_run and self.last_run > new_datetime:
+            raise Exception(f"{new_datetime} is previous to {self._last_run}")
+
+        self._last_run = new_datetime
+
     @classmethod
     def _get_by_id(cls, _id):
         item = super()._get_by_id(_id)
@@ -185,4 +213,24 @@ class Job(ActiveRecordMixin):
             _id=item.get("id"),
             template=item.get("template"),
             user_conf=item.get("user_conf"),
+            last_run=item.get("last_run")
+            if "last_run" in item and item.get("last_run")
+            else None,
         )
+
+    def save(self):
+        # TODO: abstract this method
+        """
+        State information are attributes of the Job... should go to job configs...
+        Does Job Configs name makes sense still?
+        Probably Job is the right one
+        What about storing run info for each step? A table for run summaries?
+        """
+
+        results = self._table.update_item(
+            Key={"id": self.id},
+            UpdateExpression="SET last_run = :last_run",
+            ExpressionAttributeValues={":last_run": self.last_run.isoformat()},
+            ReturnValues="UPDATED_NEW",
+        )
+        logger.debug(f"Updated job {self.id} with values {results}")
