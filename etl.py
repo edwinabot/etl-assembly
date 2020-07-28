@@ -1,6 +1,6 @@
 import pickle
 import importlib
-
+from datetime import datetime
 from queue import Queue
 
 from registry import Job
@@ -81,6 +81,10 @@ class Extract(BaseJob):
             callable_path=job.template.extract, callable_arguments={"job": job},
         )
         self.job = job
+
+    def update_extraction_datetime(self, extraction_datetime: datetime):
+        self.job.last_run = extraction_datetime
+        self.job.save()
 
 
 class Transform(BaseJob):
