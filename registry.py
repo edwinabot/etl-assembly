@@ -1,5 +1,5 @@
 from typing import Union
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database import TemplateTable, UserConfTable, JobTable, get_table
 from logs import get_logger
@@ -151,7 +151,9 @@ class Job(ActiveRecordMixin):
         _id,
         template: Union[str, Template],
         user_conf: Union[str, UserConf],
-        last_run: Union[str, datetime],
+        last_run: Union[str, datetime],  # TODO: this can be None cause never ran
+        name: str,
+        description: str,
     ):
         if not all((_id, user_conf, template)):
             raise ValueError("Arguments can't be None")
@@ -163,7 +165,16 @@ class Job(ActiveRecordMixin):
         self._id = _id
         self._template = template
         self._user_conf = user_conf
-        self._last_run = last_run
+        self.name = name
+        self.description = description
+        if last_run and isinstance(last_run, str):
+            self._last_run = datetime.fromisoformat(last_run)
+        elif last_run and isinstance(last_run, datetime):
+            if not datetime.tzinfo:
+                raise TypeError("last_run must be offset-aware datetime")
+            self._last_run = last_run
+        else:
+            self._last_run = datetime.now(timezone.utc)
 
     @property
     def id(self):
@@ -191,7 +202,7 @@ class Job(ActiveRecordMixin):
     @property
     def last_run(self):
         if self._last_run and isinstance(self._last_run, str):
-            self._last_run = datetime.strptime(self._last_run, "%Y-%m-%dT%H:%M:%S%z")
+            self._last_run = datetime.fromisoformat(self._last_run)
         return self._last_run
 
     @last_run.setter
@@ -216,6 +227,8 @@ class Job(ActiveRecordMixin):
             last_run=item.get("last_run")
             if "last_run" in item and item.get("last_run")
             else None,
+            name=item.get("name", ""),
+            description=item.get("description", ""),
         )
 
     def save(self):

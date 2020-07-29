@@ -1,6 +1,4 @@
-import json
-
-from trustar import Report
+from trustar import Report, Tag
 from pymisp import MISPEvent, MISPObject
 
 from logs import get_logger
@@ -14,27 +12,27 @@ class MispToTrustar:
 
         self.allowed_tag_name_length = kwargs.get("allowed_tag_name_length", 20)
 
-    def process_event(self, event: dict):
+    def process_event(self, event: MISPEvent):
         report, attribute_tags = None, None
         try:
             report = Report(
-                title=event["id"],
-                body=json.dumps(event),
-                time_began=event["date"],
-                external_id=event["uuid"],
+                title=f"{event.info} - {event.id}",
+                body=event.to_json(),
+                time_began=event.date,
+                external_id=event.uuid,
             )
 
             # Tags are fetched from 2 sources.
             # 1. Attribute Tags 2. Object Attribute Tags
             # 1. Get attributes tags
-            attribute_tags = self.get_tags_from_attributes(event.get("Attribute", []))
+            attribute_tags = self.get_tags_from_attributes(event.Attribute)
 
             # 2. Get Object Attribute Tags
             # Iterate through objects of event to get attributes
-            for objects in event.get("Object", []):
+            for objects in event.Object:
                 # Append the tags from object attribute
                 attribute_tags = attribute_tags.union(
-                    self.get_tags_from_attributes(objects.get("Attribute", []))
+                    self.get_tags_from_attributes(objects.Attribute)
                 )
         except KeyError as ke:
             logger.warning(f"{ke} not in event {event}")
@@ -53,7 +51,7 @@ class MispToTrustar:
         """
         results = []
         for item in self.feed:
-            report, tags = self.process_event(item["Event"])
+            report, tags = self.process_event(item)
             results.append({"report": report, "tags": tags})
         return results
 
@@ -68,14 +66,14 @@ class MispToTrustar:
 
         # Iterate through attribute of events to get tags
         for attributes in list_attributes:
-            for tag in attributes.get("Tag", []):
+            for tag in attributes.Tag:
                 # Adding tags only if length of tag name <= 20.
-                if len(tag["name"]) <= self.allowed_tag_name_length:
-                    attribute_tags.add(tag["name"])
+                if len(tag.name) <= self.allowed_tag_name_length:
+                    attribute_tags.add(tag.name)
                 else:
                     logger.info(
                         "Ignoring Tag name {} of length {}".format(
-                            tag["name"], len(tag["name"])
+                            tag.name, len(tag.name)
                         )
                     )
 
@@ -93,14 +91,14 @@ class TrustarToMisp:
         # Iterate through each TruSTAR report and create MISP events for each
         for element in extracted_reports:
             try:
-                logger.info(f"Tranforming {element}")
+                logger.info(f"Tranforming {element['report'].id}")
                 # Initialize and set MISPEvent()
                 report = element["report"]
-                tags = element["tags"]
+                tags = element["tags"] + [Tag("TruSTAR"), Tag("Report")]
                 indicators = element["indicators"]
 
                 event = MISPEvent()
-                event.info = report.title
+                event.info = f"TruSTAR Report: {report.title}"
                 logger.debug(f"Generating a MISP event for {event.info}")
 
                 # Get tags for report
@@ -120,22 +118,25 @@ class TrustarToMisp:
 
                 events.append(event)
             except KeyError as k:
-                logger.error(f"Missing {k} in {element}")
+                logger.error(f"Missing {k}")
             except Exception as e:
                 logger.error(
-                    f"Failed to transform TruSTAR report {element['report']} "
+                    f"Failed to transform TruSTAR report {element['report'].id} "
                     f"to MISP event - {e}"
                 )
         return events
 
     @staticmethod
-    def ioc_list_to_misp_object_attributes(extacted_iocs):
+    def iocs_to_misp_attributes(extacted_iocs: list):
         """
         Returns a MISPObject with the extracted IOCs as attributes
         """
         obj = MISPObject("trustar_report", standalone=False, strict=True)
         for indicator in extacted_iocs:
-            obj.add_attribute(indicator.type, indicator.value)
+            try:
+                obj.add_attribute(indicator.type, indicator.value)
+            except Exception as ex:
+                logger.error(f"Failed to transform IOC {indicator} with error {ex}")
         return obj
 
 
@@ -153,7 +154,7 @@ def ts_reports_to_misp_event(extracted_data):
 def ts_enclave_ioc_to_misp_attributes(extracted_data: dict):
     try:
         for k, v in extracted_data.items():
-            obj = TrustarToMisp.ioc_list_to_misp_object_attributes(v)
+            obj = TrustarToMisp.iocs_to_misp_attributes(v)
             extracted_data[k] = obj
         return extracted_data
     except Exception as ex:

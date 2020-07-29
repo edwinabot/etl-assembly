@@ -10,13 +10,13 @@ logger = get_logger(__name__)
 
 
 class StationLoader:
-    def __init__(self, sdk_conf: Job) -> None:
-        self.sdk_conf = sdk_conf
+    def __init__(self, job: Job) -> None:
+        self.job = job
         self._build_client()
 
     def _build_client(self):
-        ts_conf = self.sdk_conf.user_conf.destination_conf
-        ts_conf.update(self.sdk_conf.user_conf.destination_secrets)
+        ts_conf = self.job.user_conf.destination_conf
+        ts_conf.update(self.job.user_conf.destination_secrets)
         self.client = TruStar(config=ts_conf)
 
     def submit_report(self, report: Report):
@@ -33,6 +33,13 @@ class StationLoader:
 
 
 def load_reports(job: Load):
-    loader = StationLoader(sdk_conf=job.job)
+    loader = StationLoader(job=job.job)
+    results: dict = {"success": [], "error": []}
     for element in job.transformed_data:
-        loader.submit_report(element.get("report"))
+        try:
+            loader.submit_report(element.get("report"))
+            results["success"].append(element)
+        except Exception as ex:
+            logger.exception(ex)
+            results["error"].append((element, ex))
+    return results

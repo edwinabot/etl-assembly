@@ -1,4 +1,5 @@
 from pymisp import PyMISP, MISPEvent
+from trustar.models.enclave import EnclavePermissions
 
 from registry import Job
 from etl import Load
@@ -17,12 +18,13 @@ class MISPLoader:
         secret = self.job.user_conf.destination_secrets
         self.client = PyMISP(url=conf["url"], key=secret["key"])
 
-    def build_enclave_event(self, enclave_id: str):
+    @staticmethod
+    def build_enclave_event(enclave: EnclavePermissions):
         event = MISPEvent()
-        event.uuid = enclave_id
-        event.info = f"Enclave {enclave_id}"
-        event.add_tag("TruSTAR Enclave")
-        event.add_tag(f"trustar_enclave_id:{enclave_id}")
+        event.uuid = enclave.id
+        event.info = f"TruSTAR Enclave: {enclave.name}"
+        event.add_tag("TruSTAR")
+        event.add_tag("Enclave")
         logger.info(f"Generating a MISP event for {event.info}")
         return event
 
@@ -50,8 +52,15 @@ class MISPLoader:
 
 def load_events(job: Load):
     loader = MISPLoader(job=job.job)
+    results: dict = {"success": [], "error": []}
     for element in job.transformed_data:
-        loader.upsert_event(element)
+        try:
+            loader.upsert_event(element)
+            results["success"].append(element)
+        except Exception as ex:
+            logger.exception(ex)
+            results["error"].append((element, ex))
+    return results
 
 
 def load_to_enclave_event(job: Load):
@@ -60,12 +69,16 @@ def load_to_enclave_event(job: Load):
     If the enclave event doesn't exists it will be created
     """
     loader = MISPLoader(job=job.job)
-    for k, v in job.transformed_data.items():
+    results: dict = {"success": [], "error": []}
+    for enclave, attributes in job.transformed_data.items():
         try:
-            event = loader.get_event(k)
+            event = loader.get_event(enclave.id)
             if not event:
-                event = loader.build_enclave_event(k)
-            event.add_object(v)
+                event = loader.build_enclave_event(enclave)
+            event.add_object(attributes)
             loader.upsert_event(event)
+            results["success"].append((enclave, attributes))
         except Exception as ex:
             logger.exception(ex)
+            results["error"].append((enclave, attributes, ex))
+    return results

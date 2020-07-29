@@ -38,6 +38,9 @@ if __name__ == "__main__":
         dest="build_database",
         default=False,
         help="(OPTIONAL) Recreate the database an load the fixture",
+    ),
+    parser.add_argument(
+        "job_id", help="Job ID to run",
     )
     args = parser.parse_args()
 
@@ -59,11 +62,7 @@ if __name__ == "__main__":
 
     # Build a job object
     logger.info("Retrieving job config")
-    # base_job = Job.get(_id="7f9010e3-f1b9-408a-8fbf-85fe20f8fd34")  # misp trustar
-    base_job = Job.get(_id="6c7e83fd-9c22-45ff-829d-59c887917c6f")  # trustar misp
-    # base_job = Job.get(
-    #     _id="cbac3537-1917-446c-9232-8a027ad99139"
-    # )  # trustar enclave iocs misp
+    base_job = Job.get(_id=args.job_id)  # trustar misp
 
     logger.info("Retrieving done")
 
@@ -81,6 +80,11 @@ if __name__ == "__main__":
     current_run_datetime = datetime.now(timezone.utc)
     extracted_data = extract_job.run()
     extract_job.update_extraction_datetime(current_run_datetime)
+    if not extracted_data:
+        logger.info(
+            f"No new data for job {extract_job.job.name} - ID {extract_job.job.id}"
+        )
+        exit(0)
 
     # attach the extracted data to the ETL job
     # queue for transformation
@@ -108,3 +112,5 @@ if __name__ == "__main__":
     loaded_data = load_job.run()
     logger.info("That's it")
     # END
+
+# Maybe use TS report id as MISP event UUID?
