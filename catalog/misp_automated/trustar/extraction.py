@@ -56,26 +56,32 @@ class StationExtractor:
         # If not available get all enclaves for the user and populate
         if not enclave_ids:
             logger.info("No enclave ids provided. Retrieving all user enclaves ids")
-            enclaves = self.client.get_user_enclaves()
-            enclave_ids = [e.id for e in enclaves]  # if e.read?
+            enclaves = (
+                self.client.get_user_enclaves()
+            )  # if filter out read only enclaves?
+        else:
+            enclaves = [
+                e for e in self.client.get_user_enclaves() if e.id in enclave_ids
+            ]
 
         # retrieve enclave iocs
-        for enclave_id in enclave_ids:
+        for enclave in enclaves:
             try:
                 logger.info(
-                    f"Extracting IOCs from enclave {enclave_id} "
+                    f"Extracting IOCs from enclave {enclave.name} id {enclave.id} "
                     f"since {self.job.last_run}"
                 )
                 indicators = list(
                     self.client.search_indicators(
-                        enclave_ids=[enclave_id],
+                        enclave_ids=[enclave.id],
                         from_time=datetime_to_millis(self.job.last_run),
                     )
                 )
-                results.update({enclave_id: indicators})
+                results.update({enclave: indicators})
             except Exception as ex:
                 logger.error(
-                    f"Failed to pull iocs from enclave {enclave_id} with error {ex}"
+                    f"Failed to pull iocs from from enclave {enclave.name} "
+                    f"id {enclave.id} with error {ex}"
                 )
         return results
 
@@ -98,7 +104,7 @@ def pull_reports(job: Job):
         return results
     except Exception as ex:
         logger.error(f"Failed to extract repors for job {job.id}")
-        logger.exception(ex)
+        raise ex
 
 
 def pull_enclaves_iocs(job: Job):
@@ -108,4 +114,4 @@ def pull_enclaves_iocs(job: Job):
         return results
     except Exception as ex:
         logger.error(f"Failed to extract IOCs from enclaves for job {job.id}")
-        logger.exception(ex)
+        raise ex

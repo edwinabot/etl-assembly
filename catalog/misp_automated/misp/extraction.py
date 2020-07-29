@@ -1,3 +1,4 @@
+from datetime import datetime
 from pymisp import PyMISP, PyMISPError
 
 from registry import Job
@@ -27,8 +28,7 @@ class FeedClient:
 
         return misp_conn
 
-    @staticmethod
-    def get_response_data(misp_conn, since):
+    def query_misp(self, misp_conn: PyMISP, since: datetime):
         """ Pull data from the MISP API and return response.
 
         :param interval: time interval (e.g - 24h, 240m, 30.6m, etc)
@@ -37,7 +37,12 @@ class FeedClient:
         response = None
         try:
             # Fetch all MISP events
-            response = misp_conn.search(date_from=since)
+            not_this_tags = misp_conn.build_complex_query(
+                not_parameters=["Enclave", "TruSTAR"]
+            )
+            response = misp_conn.search(
+                timestamp=since, tag=not_this_tags, pythonify=True,
+            )
         except PyMISPError as pyexe:
             logger.error(f"MISP Communication Error : {pyexe}")
         except Exception as exe:
@@ -64,18 +69,9 @@ class FeedClient:
 
     def pull_feeds(self):
         """
-        Pulls MISP feeds.
-        Saves the responses as files in the stash data dir.
-        For the first iteration, feeds in the block of latest 24 hours is fetched
-        For subsequent iterations, feeds later than saved time are fetched not
-        more than 500.
-        For any iteration, the timestamp of latest feed is persisted
-
-        :param start_time: starting poll time in datetime format
-        :param end_time: ending poll time in datetime format
-        :param feeds_dir: dir where feeds will be saved
-
-        :return: boolean for pull success
+        Pulls MISP Events.
+        It exclude al events tagged as TruSTAR
+        Additionally checks that the Event is not an Enclave Event
         """
         results = None
         try:
@@ -83,24 +79,25 @@ class FeedClient:
             since = self.job.last_run if self.job.last_run else "30d"
 
             # Fetch MISP events data
-            response = self.get_response_data(misp_client, since)
+            response = self.query_misp(misp_client, since)
             if response:
                 results = self.clean_response(response)
                 # Sort data list based on timestamp column. Latest events on top
-                results = sorted(
-                    response, key=lambda k: k["Event"]["timestamp"], reverse=True
-                )
+                results = sorted(response, key=lambda k: k.timestamp, reverse=True)
             else:
                 logger.warning("Client Error or empty response received")
 
-        except Exception as exe:
-            logger.exception(
-                f"Could not query on MISP Client Error: {exe}", exc_info=True
-            )
-        finally:
+        except Exception as ex:
+            logger.error(f"Could not query on MISP Client Error: {ex}")
+            raise ex
+        else:
             return results
 
 
-def pull_feeds(job):
-    feed_client = FeedClient(job)
-    return feed_client.pull_feeds()
+def pull_feeds(job: Job):
+    try:
+        feed_client = FeedClient(job)
+        return feed_client.pull_feeds()
+    except Exception as ex:
+        logger.error(f"Failed to pull feed for job {job.id}")
+        raise ex
