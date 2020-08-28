@@ -1,8 +1,8 @@
 from typing import Union
 from datetime import datetime, timezone
 
-from database import TemplateTable, UserConfTable, JobTable, get_table
-from logs import get_logger
+from core.database import TemplateTable, UserConfTable, JobTable, get_table
+from core.logs import get_logger
 
 logger = get_logger(__name__)
 

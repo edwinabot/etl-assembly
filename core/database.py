@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import boto3
 
-import config
-from logs import get_logger
+import core.config as config
+from core.logs import get_logger
 
 logger = get_logger("database")
 

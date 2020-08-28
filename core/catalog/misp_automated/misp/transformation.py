@@ -1,7 +1,7 @@
 from trustar import Report, Tag
 from pymisp import MISPEvent, MISPObject
 
-from logs import get_logger
+from core.logs import get_logger
 
 logger = get_logger(__name__)
 
@@ -113,8 +113,15 @@ class TrustarToMisp:
                 # Get indicators for report
                 logger.debug(f"Adding indicators for {event.info} to MISP object")
                 for indicator in indicators:
-                    obj.add_attribute(indicator.type, indicator.value)
+                    try:
+                        obj.add_attribute(indicator.type, indicator.value)
+                    except Exception as ex:
+                        logger.warning(
+                            f"Failed to transform TruSTAR Indicator "
+                            f"to MISP Attribute {ex}"
+                        )
                 event.add_object(obj)
+                event.add_attribute("link", element["deeplink"])
 
                 events.append(event)
             except KeyError as k:
