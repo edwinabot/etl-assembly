@@ -19,7 +19,6 @@ class ActiveRecordMixin:
         if "Item" not in response:
             raise ValueError(f"No record found with id '{_id}' in {cls._table.name}")
         item = response["Item"]
-        logger.debug(f"Found {item}")
         return item
 
     @classmethod
