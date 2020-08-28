@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ETL-Assembly
+
+Globals:
+  Function:
+    Timeout: 900
+    MemorySize: 512
+    CodeUri: serverless-assembly/
+    Runtime: python3.8
+
+Parameters:
+  EnvironmentName:
+    Description: The environment to deploy this to.
+    Type: String
+    Default: Staging
+    AllowedValues:
+      - Staging
+      - Production
+    ConstraintDescription: "Must be one of: Staging, Production"
+
+Resources:
+  JobCreationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: job_creation.lambda_handler
+
+  ExtractJobsQueue:
+    Type: AWS::SQS::Queue
+
+  TransformJobsQueue:
+    Type: AWS::SQS::Queue
+
+  LoadJobsQueue:
+    Type: AWS::SQS::Queue
+
+  TemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: id
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${EnvironmentName}-etl-assembly-templates
+
+  UserConfTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: id
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${EnvironmentName}-etl-assembly-user-configs
+
+  JobTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: id
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${EnvironmentName}-etl-assembly-jobs
