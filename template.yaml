@@ -28,23 +28,37 @@ Resources:
 
   ExtractJobsQueue:
     Type: AWS::SQS::Queue
+    Properties:
+      # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-etl-assembly-extract-jobs.fifo
+      VisibilityTimeout: 900
 
   TransformJobsQueue:
     Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-etl-assembly-transform-jobs.fifo
+      VisibilityTimeout: 900
 
   LoadJobsQueue:
     Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-etl-assembly-load-jobs.fifo
+      VisibilityTimeout: 900
 
   TemplatesTable:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-        -
-          AttributeName: id
+        - AttributeName: id
           AttributeType: S
       KeySchema:
-        -
-          AttributeName: id
+        - AttributeName: id
           KeyType: HASH
       StreamSpecification:
         StreamViewType: KEYS_ONLY
@@ -55,12 +69,10 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-        -
-          AttributeName: id
+        - AttributeName: id
           AttributeType: S
       KeySchema:
-        -
-          AttributeName: id
+        - AttributeName: id
           KeyType: HASH
       StreamSpecification:
         StreamViewType: KEYS_ONLY
@@ -71,12 +83,10 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-        -
-          AttributeName: id
+        - AttributeName: id
           AttributeType: S
       KeySchema:
-        -
-          AttributeName: id
+        - AttributeName: id
           KeyType: HASH
       StreamSpecification:
         StreamViewType: KEYS_ONLY
