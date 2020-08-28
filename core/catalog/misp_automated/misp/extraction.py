@@ -1,8 +1,8 @@
 from datetime import datetime
 from pymisp import PyMISP, PyMISPError
 
-from registry import Job
-from logs import get_logger
+from core.registry import Job
+from core.logs import get_logger
 
 
 logger = get_logger(__name__)

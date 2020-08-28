@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 
 from trustar import TruStar, datetime_to_millis
-from registry import Job
-from logs import get_logger
+
+from core.registry import Job
+from core.logs import get_logger
 
 
 logger = get_logger(__name__)
@@ -92,6 +93,9 @@ def pull_reports(job: Job):
     """
     try:
         extractor = StationExtractor(job)
+        report_deeplink_base = job.user_conf.source_conf["report_deeplink_base"].strip(
+            "/"
+        )
         results = []
 
         reports = extractor.get_reports()
@@ -99,7 +103,14 @@ def pull_reports(job: Job):
         for report in reports:
             tags = extractor.get_enclave_tags(report)
             indicators = extractor.get_indicators_for_report(report)
-            results.append({"report": report, "tags": tags, "indicators": indicators})
+            results.append(
+                {
+                    "report": report,
+                    "tags": tags,
+                    "indicators": indicators,
+                    "deeplink": "/".join((report_deeplink_base, report.id)),
+                }
+            )
 
         return results
     except Exception as ex:

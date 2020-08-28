@@ -1,9 +1,17 @@
+from abc import ABC, abstractmethod
+import codecs
 import pickle
 import importlib
 from datetime import datetime
 from queue import Queue
+from typing import Union, List
 
-from registry import Job
+import boto3
+
+from core.registry import Job
+from core.logs import get_logger
+
+logger = get_logger(__name__)
 
 
 class BaseJob:
@@ -37,10 +45,11 @@ class BaseJob:
         bytes
             bytes string representation of this job
         """
-        return pickle.dumps(self)
+        pickled = codecs.encode(pickle.dumps(self), "base64").decode()
+        return pickled
 
-    @classmethod
-    def deserialize(cls, bytestream: bytes) -> "Job":
+    @staticmethod
+    def deserialize(bytestream: str) -> "Job":
         """Deserializes the provided bytestream
 
         Returns
@@ -48,7 +57,8 @@ class BaseJob:
         Job
             A Job object
         """
-        return pickle.loads(bytestream)
+        unpickled = pickle.loads(codecs.decode(bytestream.encode(), "base64"))
+        return unpickled
 
     @classmethod
     def build(cls, *args, **kwargs):
@@ -59,7 +69,7 @@ class BaseJob:
         """Imports the module and gets the callable from it"""
         # importlib.invalidate_caches()
         # TODO: sanitization of the code is critical here. What are we loading?
-        exploded_path = ["catalog"]
+        exploded_path = ["core", "catalog"]
         exploded_path.extend(callable_path.split("."))  # misp.extraction.pull_feeds
         module = importlib.import_module(".".join(exploded_path[:-1]))
         self._job_callable = getattr(module, exploded_path[-1])
@@ -134,42 +144,55 @@ class Load(BaseJob):
         )
 
 
-class BaseQueue:
-    def __init__(self):
-        self._q = Queue()
+class AbstractQueue(ABC):
+    @abstractmethod
+    def put(self, jobs: List[Union[Extract, Transform, Load]]) -> None:
+        raise NotImplementedError
 
-    def put(self, job: BaseJob):
-        self._q.put(job.serialize())
-
-    def get(self):
-        return self._q.get()
-
-    def deserialize(self, message):
+    @abstractmethod
+    def get(self) -> Union[Extract, Transform, Load]:
         raise NotImplementedError
 
 
-class ExtractQueue(BaseQueue):
-    def deserialize(self, message):
-        return Extract.deserialize(message)
+class InMemoryQueue(AbstractQueue):
+    def __init__(self):
+        self._q = Queue()
 
-    def get(self):
-        element = super().get()
-        return Extract.deserialize(element)
+    def put(self, jobs: List[Union[Extract, Transform, Load]]):
+        for j in jobs:
+            self._q.put(j.serialize())
 
-
-class TransformQueue(BaseQueue):
-    def deserialize(self, message):
-        return Transform.deserialize(message)
-
-    def get(self):
-        element = super().get()
-        return Transform.deserialize(element)
+    def get(self) -> Union[Extract, Transform, Load]:
+        return BaseJob.deserialize(self._q.get())
 
 
-class LoadQueue(BaseQueue):
-    def deserialize(self, message):
-        return Load.deserialize(message)
+class SqsQueue(AbstractQueue):
+    def __init__(self, queue_url: str):
+        self.queue_url = queue_url
+        self.sqs = boto3.client("sqs")
 
-    def get(self):
-        element = super().get()
-        return Load.deserialize(element)
+    def put(self, jobs: List[Union[Extract, Transform, Load]]):
+        # Send message to SQS queue
+        for job in jobs:
+            serialized_job = job.serialize()
+            response = self.sqs.send_message(
+                QueueUrl=self.queue_url,
+                MessageBody=serialized_job,
+                MessageGroupId="assembly-messages",
+            )
+            logger.debug(f"Queued {job.job.id} with MessageId {response['MessageId']}")
+
+    def get(self) -> Union[Extract, Transform, Load]:
+        response = self.sqs.receive_message(
+            QueueUrl=self.queue_url,
+            MaxNumberOfMessages=1,
+            MessageAttributeNames=["All"],
+            AttributeNames=["ALL"],
+        )
+
+        message = response["Messages"][0]
+        job = BaseJob.deserialize(message["Body"])
+        receipt_handle = message["ReceiptHandle"]
+        # Delete received message from queue
+        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receipt_handle)
+        return job

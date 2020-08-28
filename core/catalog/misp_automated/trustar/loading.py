@@ -2,9 +2,8 @@ from requests import HTTPError
 from trustar import TruStar
 from trustar.models import Report
 
-from logs import get_logger
-
-from etl import Load, Job
+from core.logs import get_logger
+from core.etl import Load, Job
 
 logger = get_logger(__name__)
 

@@ -1,6 +1,6 @@
 import pytest
 
-from registry import Job
+from core.registry import Job
 
 
 def test_non_existant_job_configuration(dynamo):

@@ -1,9 +1,9 @@
 from pymisp import PyMISP, MISPEvent
 from trustar.models.enclave import EnclavePermissions
 
-from registry import Job
-from etl import Load
-from logs import get_logger
+from core.registry import Job
+from core.etl import Load
+from core.logs import get_logger
 
 logger = get_logger(__name__)
 
