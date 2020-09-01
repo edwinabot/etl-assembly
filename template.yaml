@@ -20,18 +20,32 @@ Parameters:
     ConstraintDescription: "Must be one of: Staging, Production"
 
 Resources:
+  CoreLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: etl-assembly-core
+      Description: This is the core functionality and deps for ETL Assembly
+      ContentUri: .
+      CompatibleRuntimes:
+        - python3.8
+    Metadata:
+      BuildMethod: makefile
+
   JobCreationFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: job_creation.lambda_handler
+      Layers:
+        - Ref: CoreLayer
     Metadata:
       BuildMethod: makefile
-
 
   CronSchedulerFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: cron_scheduler.lambda_handler
+      Layers:
+        - Ref: CoreLayer
     Events:
       JobTableUpsert:
         Type: DynamoDB
@@ -41,7 +55,6 @@ Resources:
           Enabled: True
     Metadata:
       BuildMethod: makefile
-
 
   ExtractJobsQueue:
     Type: AWS::SQS::Queue
