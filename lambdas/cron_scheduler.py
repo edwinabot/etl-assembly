@@ -5,4 +5,6 @@ logger = get_logger(__name__)
 
 def lambda_handler(event, context):
     # Build a job object
-    logger.debug(f"Handling event {event}")
+    logger.error(f"Handling event {event}")
+    print(event)
+    print(context)
