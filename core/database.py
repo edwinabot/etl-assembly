@@ -98,21 +98,21 @@ def load_fixtures(tables: list, fixture_path: str):
 
 
 TemplateTable = TableDefinition(
-    "etl_assembly_templates",
+    name=config.TEMPLATES_TABLE,
     key_schema=[{"AttributeName": "id", "KeyType": "HASH"}],  # Partition key
     attribute_deffinition=[{"AttributeName": "id", "AttributeType": "S"}],
     provisioned_throughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
 )
 
 UserConfTable = TableDefinition(
-    name="etl_assembly_user_configs",
+    name=config.USER_CONF_TABLE,
     key_schema=[{"AttributeName": "id", "KeyType": "HASH"}],  # Partition key
     attribute_deffinition=[{"AttributeName": "id", "AttributeType": "S"}],
     provisioned_throughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
 )
 
 JobTable = TableDefinition(
-    name="etl_assembly_jobs",
+    name=config.JOB_TABLE,
     key_schema=[{"AttributeName": "id", "KeyType": "HASH"}],  # Partition key
     attribute_deffinition=[{"AttributeName": "id", "AttributeType": "S"}],
     provisioned_throughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
