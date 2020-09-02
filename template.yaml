@@ -8,6 +8,13 @@ Globals:
     Timeout: 900
     MemorySize: 512
     Runtime: python3.8
+    Environment:
+      Variables:
+        JOB_CREATION_FUNCTION: !Sub ${EnvironmentName}-JobCreationFunction
+        JOB_TABLE: !Sub ${EnvironmentName}-JobTable
+        USER_CONF_TABLE: !Sub ${EnvironmentName}-UserConfTable
+        TEMPLATES_TABLE: !Sub ${EnvironmentName}-TemplatesTable
+
 
 Parameters:
   EnvironmentName:
@@ -20,10 +27,10 @@ Parameters:
     ConstraintDescription: "Must be one of: Staging, Production"
 
 Resources:
-  CoreLayer:
+  EtlAssemblyCoreLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: etl-assembly-core
+      LayerName: !Sub ${EnvironmentName}-EtlAssemblyCoreLayer
       Description: This is the core functionality and deps for ETL Assembly
       ContentUri: .
       CompatibleRuntimes:
@@ -35,8 +42,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: job_creation.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-JobCreationFunction
       Layers:
-        - Ref: CoreLayer
+        - Ref: EtlAssemblyCoreLayer
     Metadata:
       BuildMethod: makefile
 
@@ -44,15 +52,17 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: cron_scheduler.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-CronSchedulerFunction
       Layers:
-        - Ref: CoreLayer
-    Events:
-      JobTableUpsert:
-        Type: DynamoDB
-        Properties:
-          StartingPosition: LATEST
-          Stream: !GetAtt JobTable.StreamArn
-          Enabled: True
+        - Ref: EtlAssemblyCoreLayer
+      Events:
+        JobTableUpsert:
+          Type: DynamoDB
+          Properties:
+            StartingPosition: LATEST
+            Stream: !GetAtt JobTable.StreamArn
+            Enabled: True
+
     Metadata:
       BuildMethod: makefile
 
@@ -62,7 +72,7 @@ Resources:
       # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html
       ContentBasedDeduplication: True
       FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-etl-assembly-extract-jobs.fifo
+      QueueName: !Sub ${EnvironmentName}-ExtractJobsQueue.fifo
       VisibilityTimeout: 900
 
   TransformJobsQueue:
@@ -70,7 +80,7 @@ Resources:
     Properties:
       ContentBasedDeduplication: True
       FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-etl-assembly-transform-jobs.fifo
+      QueueName: !Sub ${EnvironmentName}-TransformJobsQueue.fifo
       VisibilityTimeout: 900
 
   LoadJobsQueue:
@@ -78,7 +88,7 @@ Resources:
     Properties:
       ContentBasedDeduplication: True
       FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-etl-assembly-load-jobs.fifo
+      QueueName: !Sub ${EnvironmentName}-LoadJobsQueue.fifo
       VisibilityTimeout: 900
 
   TemplatesTable:
@@ -93,7 +103,7 @@ Resources:
       StreamSpecification:
         StreamViewType: KEYS_ONLY
       BillingMode: PAY_PER_REQUEST
-      TableName: !Sub ${EnvironmentName}-etl-assembly-templates
+      TableName: !Sub ${EnvironmentName}-TemplatesTable
 
   UserConfTable:
     Type: AWS::DynamoDB::Table
@@ -107,7 +117,7 @@ Resources:
       StreamSpecification:
         StreamViewType: KEYS_ONLY
       BillingMode: PAY_PER_REQUEST
-      TableName: !Sub ${EnvironmentName}-etl-assembly-user-configs
+      TableName: !Sub ${EnvironmentName}-UserConfTable
 
   JobTable:
     Type: AWS::DynamoDB::Table
@@ -121,4 +131,4 @@ Resources:
       StreamSpecification:
         StreamViewType: KEYS_ONLY
       BillingMode: PAY_PER_REQUEST
-      TableName: !Sub ${EnvironmentName}-etl-assembly-jobs
+      TableName: !Sub ${EnvironmentName}-JobTable

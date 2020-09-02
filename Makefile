@@ -4,7 +4,7 @@ build-JobCreationFunction:
 build-CronSchedulerFunction:
 	cp lambdas/cron_scheduler.py "$(ARTIFACTS_DIR)"
 
-build-CoreLayer:
+build-EtlAssemblyCoreLayer:
 	mkdir -p "$(ARTIFACTS_DIR)/python"
 	python -m pip install pipenv
 	pipenv lock -r > "$(ARTIFACTS_DIR)/requirements.txt"
