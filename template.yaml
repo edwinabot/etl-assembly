@@ -13,6 +13,9 @@ Globals:
         JOB_TABLE: !Sub ${EnvironmentName}-JobTable
         USER_CONF_TABLE: !Sub ${EnvironmentName}-UserConfTable
         TEMPLATES_TABLE: !Sub ${EnvironmentName}-TemplatesTable
+        EXTRACT_JOBS_QUEUE: !Ref ExtractJobsQueue
+        TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
+        LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
 
 Parameters:
   EnvironmentName:
@@ -43,6 +46,24 @@ Resources:
       FunctionName: !Sub ${EnvironmentName}-JobCreationFunction
       Layers:
         - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt ExtractJobsQueue.Arn
+
     Metadata:
       BuildMethod: makefile
 

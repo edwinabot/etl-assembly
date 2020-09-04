@@ -91,7 +91,7 @@ def handle_remove(record, client, lambdas):
         FunctionName=config.JOB_CREATION_FUNCTION, StatementId=get_rule_name(conf_id)
     )
     targets_response = client.remove_targets(
-        Rule=get_rule_name(conf_id), Ids=[config.JOB_CREATION_FUNCTION,],
+        Rule=get_rule_name(conf_id), Ids=[config.JOB_CREATION_FUNCTION]
     )
     logger.debug(targets_response)
     client.delete_rule(Name=get_rule_name(conf_id))
