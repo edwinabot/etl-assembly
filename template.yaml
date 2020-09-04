@@ -10,7 +10,6 @@ Globals:
     Runtime: python3.8
     Environment:
       Variables:
-        JOB_CREATION_FUNCTION: !Sub ${EnvironmentName}-JobCreationFunction
         JOB_TABLE: !Sub ${EnvironmentName}-JobTable
         USER_CONF_TABLE: !Sub ${EnvironmentName}-UserConfTable
         TEMPLATES_TABLE: !Sub ${EnvironmentName}-TemplatesTable
@@ -61,6 +60,10 @@ Resources:
             StartingPosition: LATEST
             Stream: !GetAtt JobTable.StreamArn
             Enabled: True
+      Environment:
+        Variables:
+          JOB_CREATION_FUNCTION: !Sub ${EnvironmentName}-JobCreationFunction
+          JOB_CREATION_FUNCTION_ARN: !GetAtt JobCreationFunction.Arn
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -76,10 +79,18 @@ Resources:
             - Effect: Allow
               Action:
                 - dynamodb:GetItem
-              Resource: 
+              Resource:
                 - !GetAtt JobTable.Arn
                 - !GetAtt TemplatesTable.Arn
                 - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - lambda:AddPermission
+                - lambda:RemovePermission
+              Resource:
+                - !GetAtt JobCreationFunction.Arn
     Metadata:
       BuildMethod: makefile
 
