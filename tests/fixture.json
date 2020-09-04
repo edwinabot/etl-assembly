@@ -59,7 +59,7 @@
                 "api_secret": "seeeecret"
             },
             "source_conf": {
-                "frequency": "600",
+                "frequency": "rate(5 minutes)",
                 "url": "https://misp.trudevs.com/"
             },
             "source_secrets": {
@@ -77,6 +77,7 @@
                 "enclave_ids": [
                     "2792f66d-7764-4d5d-b6f1-84800c923feb"
                 ],
+                "frequency": "rate(5 minutes)",
                 "client_metatag": "Edwin's ETL Assembly POC",
                 "report_deeplink_base": "https://staging.trustar.co/constellation/reports/"
             },
@@ -85,7 +86,6 @@
                 "api_secret": "seeeecret"
             },
             "destination_conf": {
-                "frequency": "600",
                 "url": "https://misp.trudevs.com/"
             },
             "destination_secrets": {

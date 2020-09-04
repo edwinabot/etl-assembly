@@ -15,7 +15,6 @@ Globals:
         USER_CONF_TABLE: !Sub ${EnvironmentName}-UserConfTable
         TEMPLATES_TABLE: !Sub ${EnvironmentName}-TemplatesTable
 
-
 Parameters:
   EnvironmentName:
     Description: The environment to deploy this to.
@@ -62,7 +61,25 @@ Resources:
             StartingPosition: LATEST
             Stream: !GetAtt JobTable.StreamArn
             Enabled: True
-
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - events:PutRule
+                - events:PutTargets
+                - events:RemoveTargets
+                - events:DeleteRule
+              Resource: "arn:aws:events:*:*:rule/etl_assembly_job_*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: 
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
     Metadata:
       BuildMethod: makefile
 

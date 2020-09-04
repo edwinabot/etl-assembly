@@ -3,10 +3,10 @@ version = 0.1
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "ETL-Assembly"
-s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-t2slfw37n3wn"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-akoomdfczz90"
 s3_prefix = "ETL-Assembly"
-region = "us-east-1"
+region = "us-east-2"
 profile = "default"
-confirm_changeset = true
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 parameter_overrides = "EnvironmentName=\"Staging\""
+
