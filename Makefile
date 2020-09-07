@@ -19,3 +19,4 @@ build-EtlAssemblyCoreLayer:
 	pipenv lock -r > "$(ARTIFACTS_DIR)/requirements.txt"
 	python -m pip install -r "$(ARTIFACTS_DIR)/requirements.txt" -t "$(ARTIFACTS_DIR)/python"
 	cp -r core "$(ARTIFACTS_DIR)/python"
+	find "$(ARTIFACTS_DIR)/python" -name \*.pyc -delete
