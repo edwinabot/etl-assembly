@@ -1,6 +1,6 @@
 stages:
-    - test
-    - deploy
+  - test
+  - deploy
 
 test:
   stage: test
@@ -14,10 +14,14 @@ test:
 
 deploy_staging:
   stage: deploy
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y pipenv
+    - pipenv install --dev
   script:
     - echo "Deploy to Staging environment"
-    - sam build
-    - sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam build
+    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
   environment:
     name: staging
   only:
@@ -25,10 +29,14 @@ deploy_staging:
 
 deploy_prod:
   stage: deploy
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y pipenv
+    - pipenv install --dev
   script:
     - echo "Deploy to Production environment"
-    - sam build
-    - sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam build
+    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
   environment:
     name: production
   when: manual
