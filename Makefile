@@ -1,3 +1,6 @@
+build-ExtractionFunction:
+	cp lambdas/extraction.py "$(ARTIFACTS_DIR)"
+
 build-JobCreationFunction:
 	cp lambdas/job_creation.py "$(ARTIFACTS_DIR)"
 

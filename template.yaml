@@ -63,9 +63,49 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt ExtractJobsQueue.Arn
-
     Metadata:
       BuildMethod: makefile
+  
+  ExtractionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: extraction.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-ExtractionFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt JobTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt TransformJobsQueue.Arn
+      Events:
+        ExtractionJobEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ExtractJobsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
+    
 
   CronSchedulerFunction:
     Type: AWS::Serverless::Function
