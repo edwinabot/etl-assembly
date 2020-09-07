@@ -1,11 +1,36 @@
 stages:
-  - test
+    - test
+    - deploy
 
-test:
-  stage: test
-  image: python:3.8-buster
-  script:
-  - apt-get update -qy
-  - apt-get install -y pipenv
-  - pipenv install --dev
-  - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run pytest
+  test:
+    stage: test
+    image: python:3.8
+    before_script:
+      - apt-get update -qy
+      - apt-get install -y pipenv
+      - pipenv install --dev
+    script:
+      - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run pytest
+
+  deploy_staging:
+    stage: deploy
+    script:
+      - echo "Deploy to Staging environment"
+      - sam build
+      - sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    environment:
+      name: staging
+    only:
+      - master
+  
+  deploy_prod:
+    stage: deploy
+    script:
+      - echo "Deploy to Production environment"
+      - sam build
+      - sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    environment:
+      name: production
+    when: manual
+    only:
+      - master
