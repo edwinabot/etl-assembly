@@ -29,6 +29,7 @@ deploy_staging:
     name: staging
   only:
     - master
+    - development
 
 deploy_prod:
   stage: deploy
@@ -41,7 +42,7 @@ deploy_prod:
   script:
     - echo "Deploy to Production environment"
     - pipenv run sam build
-    - pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    - pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Production
   environment:
     name: production
   when: manual
