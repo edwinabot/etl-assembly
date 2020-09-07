@@ -1,7 +1,8 @@
-import os
 import logging
 
 from logging.config import dictConfig
+
+from core import config
 
 logging_config = dict(
     version=1,
@@ -22,7 +23,7 @@ logging_config = dict(
             "level": logging.DEBUG,
         }
     },
-    root={"handlers": ["h"], "level": os.getenv("LOGLEVEL", default=logging.INFO)},
+    root={"handlers": ["h"], "level": config.LOGLEVEL},
 )
 
 dictConfig(logging_config)
