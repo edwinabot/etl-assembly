@@ -9,4 +9,3 @@ region = "us-east-1"
 profile = "default"
 capabilities = "CAPABILITY_NAMED_IAM"
 parameter_overrides = "EnvironmentName=\"Staging\""
-
