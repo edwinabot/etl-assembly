@@ -1,0 +1,282 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ETL-Assembly
+
+Globals:
+  Function:
+    Timeout: 900
+    MemorySize: 512
+    Runtime: python3.8
+    Environment:
+      Variables:
+        JOB_TABLE: !Sub ${EnvironmentName}-JobTable
+        USER_CONF_TABLE: !Sub ${EnvironmentName}-UserConfTable
+        TEMPLATES_TABLE: !Sub ${EnvironmentName}-TemplatesTable
+        EXTRACT_JOBS_QUEUE: !Ref ExtractJobsQueue
+        TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
+        LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
+        LOGLEVEL: DEBUG
+
+Parameters:
+  EnvironmentName:
+    Description: The environment to deploy this to.
+    Type: String
+    Default: Staging
+    AllowedValues:
+      - Staging
+      - Production
+    ConstraintDescription: "Must be one of: Staging, Production"
+
+Resources:
+  EtlAssemblyCoreLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub ${EnvironmentName}-EtlAssemblyCoreLayer
+      Description: This is the core functionality and deps for ETL Assembly
+      ContentUri: .
+      CompatibleRuntimes:
+        - python3.8
+    Metadata:
+      BuildMethod: makefile
+
+  JobCreationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: job_creation.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-JobCreationFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt ExtractJobsQueue.Arn
+    Metadata:
+      BuildMethod: makefile
+
+  ExtractionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: extraction.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-ExtractionFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt JobTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt TransformJobsQueue.Arn
+      Events:
+        ExtractionJobEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ExtractJobsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
+
+  TransformFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: transform.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-TransformFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt LoadJobsQueue.Arn
+      Events:
+        ExtractionJobEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TransformJobsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
+
+  LoadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: load.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-LoadFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+      Events:
+        ExtractionJobEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt LoadJobsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
+
+  CronSchedulerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cron_scheduler.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-CronSchedulerFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Events:
+        JobTableUpsert:
+          Type: DynamoDB
+          Properties:
+            StartingPosition: LATEST
+            Stream: !GetAtt JobTable.StreamArn
+            Enabled: True
+      Environment:
+        Variables:
+          JOB_CREATION_FUNCTION: !Sub ${EnvironmentName}-JobCreationFunction
+          JOB_CREATION_FUNCTION_ARN: !GetAtt JobCreationFunction.Arn
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - events:PutRule
+                - events:PutTargets
+                - events:RemoveTargets
+                - events:DeleteRule
+              Resource: "arn:aws:events:*:*:rule/etl_assembly_job_*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - lambda:AddPermission
+                - lambda:RemovePermission
+              Resource:
+                - !GetAtt JobCreationFunction.Arn
+    Metadata:
+      BuildMethod: makefile
+
+  ExtractJobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-ExtractJobsQueue.fifo
+      VisibilityTimeout: 900
+
+  TransformJobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-TransformJobsQueue.fifo
+      VisibilityTimeout: 900
+
+  LoadJobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-LoadJobsQueue.fifo
+      VisibilityTimeout: 900
+
+  TemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${EnvironmentName}-TemplatesTable
+
+  UserConfTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${EnvironmentName}-UserConfTable
+
+  JobTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${EnvironmentName}-JobTable

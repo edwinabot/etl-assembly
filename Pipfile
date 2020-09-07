@@ -9,11 +9,21 @@ flake8 = "*"
 pre-commit = "*"
 pytest = "*"
 pytest-cov = "*"
+rope = "*"
+aws-sam-cli = "*"
+mypy = "*"
+gitlabci-local = "*"
+moto = "*"
+pytest-mock = "*"
 
 [packages]
+boto3 = "*"
+pymisp = "*"
+trustar = "*"
+pympler = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
 
 [pipenv]
 allow_prereleases = true
