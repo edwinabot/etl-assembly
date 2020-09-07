@@ -70,7 +70,7 @@ class DynamoInsertHandler:
             ScheduleExpression=self.job.user_conf.source_conf["frequency"],
             State="ENABLED",
             Description=(
-                f"ETL-Assembly Rule Job ID: {self.job.id} {self.job.description}"
+                f"ETL-Assembly Rule Job ID: {self.job.id} {self.job.name}"
             ),
         )
         logger.debug(rule_response)
