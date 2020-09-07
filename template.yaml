@@ -16,6 +16,7 @@ Globals:
         EXTRACT_JOBS_QUEUE: !Ref ExtractJobsQueue
         TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
         LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
+        LOGLEVEL: DEBUG
 
 Parameters:
   EnvironmentName:
@@ -105,7 +106,39 @@ Resources:
             BatchSize: 1
     Metadata:
       BuildMethod: makefile
-    
+
+  TransformFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: transform.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-TransformFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt LoadJobsQueue.Arn
+      Events:
+        ExtractionJobEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TransformJobsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
 
   CronSchedulerFunction:
     Type: AWS::Serverless::Function

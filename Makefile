@@ -1,3 +1,6 @@
+build-TransformFunction:
+	cp lambdas/transform.py "$(ARTIFACTS_DIR)"
+
 build-ExtractionFunction:
 	cp lambdas/extraction.py "$(ARTIFACTS_DIR)"
 
