@@ -1,3 +1,6 @@
+build-LoadFunction:
+	cp lambdas/load.py "$(ARTIFACTS_DIR)"
+
 build-TransformFunction:
 	cp lambdas/transform.py "$(ARTIFACTS_DIR)"
 

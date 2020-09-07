@@ -66,7 +66,7 @@ Resources:
                 - !GetAtt ExtractJobsQueue.Arn
     Metadata:
       BuildMethod: makefile
-  
+
   ExtractionFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -136,6 +136,32 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt TransformJobsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
+
+  LoadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: load.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-LoadFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+      Events:
+        ExtractionJobEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt LoadJobsQueue.Arn
             BatchSize: 1
     Metadata:
       BuildMethod: makefile

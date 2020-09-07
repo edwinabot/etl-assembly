@@ -155,7 +155,7 @@ def create_loading_job(
             load_job = Load.build(transform_job.job, part)
             jobs.append(load_job)
     else:
-        logger.info(f"Building a Transform job {transform_job.job.id}")
+        logger.info(f"Building a Load job {transform_job.job.id}")
         load_job = Load.build(transform_job.job, transformed_data)
         jobs.append(load_job)
     return jobs

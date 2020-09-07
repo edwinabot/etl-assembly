@@ -19,7 +19,10 @@ def test_remove_dynamo_event():
                     "SizeBytes": 38,
                     "StreamViewType": "KEYS_ONLY",
                 },
-                "eventSourceARN": "arn:aws:dynamodb:us-east-1:316488809373:table/Staging-etl-assembly-jobs/stream/2020-09-01T18:36:49.639",
+                "eventSourceARN": (
+                    "arn:aws:dynamodb:us-east-1:316488809373:table/"
+                    "Staging-etl-assembly-jobs/stream/2020-09-01T18:36:49.639"
+                ),
             }
         ]
     }
@@ -43,7 +46,10 @@ def test_insert_dynamo_event():
                     "SizeBytes": 38,
                     "StreamViewType": "KEYS_ONLY",
                 },
-                "eventSourceARN": "arn:aws:dynamodb:us-east-1:316488809373:table/Staging-etl-assembly-jobs/stream/2020-09-01T18:36:49.639",
+                "eventSourceARN": (
+                    "arn:aws:dynamodb:us-east-1:316488809373:table/"
+                    "Staging-etl-assembly-jobs/stream/2020-09-01T18:36:49.639"
+                ),
             }
         ]
     }
@@ -68,7 +74,10 @@ def test_modify_dynamo_event():
                     "SizeBytes": 38,
                     "StreamViewType": "KEYS_ONLY",
                 },
-                "eventSourceARN": "arn:aws:dynamodb:us-east-1:316488809373:table/Staging-etl-assembly-jobs/stream/2020-09-01T18:36:49.639",
+                "eventSourceARN": (
+                    "arn:aws:dynamodb:us-east-1:316488809373:table/"
+                    "Staging-etl-assembly-jobs/stream/2020-09-01T18:36:49.639"
+                ),
             }
         ]
     }

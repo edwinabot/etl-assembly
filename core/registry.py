@@ -8,6 +8,8 @@ logger = get_logger(__name__)
 
 
 class ActiveRecordMixin:
+    _table = None
+
     @classmethod
     def _setup_table(cls):
         cls._table = get_table(cls.table_definition)
@@ -238,6 +240,8 @@ class Job(ActiveRecordMixin):
         Probably Job is the right one
         What about storing run info for each step? A table for run summaries?
         """
+        if self._table is None:
+            self._setup_table()
 
         results = self._table.update_item(
             Key={"id": self.id},
