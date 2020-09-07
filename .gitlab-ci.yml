@@ -9,8 +9,9 @@ test:
     - apt-get update -qy
     - apt-get install -y pipenv
     - pipenv install --dev
+    - export PYTHONPATH=${PYTHONPATH}:${PWD}
   script:
-    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run pytest
+    - pipenv run pytest
 
 deploy_staging:
   stage: deploy
@@ -19,10 +20,11 @@ deploy_staging:
     - apt-get update -qy
     - apt-get install -y pipenv
     - pipenv install --dev
+    - export PYTHONPATH=${PYTHONPATH}:${PWD}
   script:
     - echo "Deploy to Staging environment"
-    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam build
-    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    - pipenv run sam build
+    - pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
   environment:
     name: staging
   only:
@@ -35,10 +37,11 @@ deploy_prod:
     - apt-get update -qy
     - apt-get install -y pipenv
     - pipenv install --dev
+    - export PYTHONPATH=${PYTHONPATH}:${PWD}
   script:
     - echo "Deploy to Production environment"
-    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam build
-    - PYTHONPATH=${PYTHONPATH}:${PWD} pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    - pipenv run sam build
+    - pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
   environment:
     name: production
   when: manual
