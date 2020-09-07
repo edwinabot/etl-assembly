@@ -29,6 +29,7 @@ deploy_staging:
     name: staging
   only:
     - master
+    - development
 
 deploy_prod:
   stage: deploy
