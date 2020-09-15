@@ -160,10 +160,10 @@ class InMemoryQueue(AbstractQueue):
 
     def put(self, jobs: List[Union[Extract, Transform, Load]]):
         for j in jobs:
-            self._q.put(j.serialize())
+            self._q.put(j.serialize(), block=False)
 
     def get(self) -> Union[Extract, Transform, Load]:
-        return BaseJob.deserialize(self._q.get())
+        return BaseJob.deserialize(self._q.get(block=False))
 
 
 class SqsQueue(AbstractQueue):

@@ -51,7 +51,7 @@ class StationExtractor:
         return list(self.client.get_indicators_for_report(report.id))
 
     def get_enclave_iocs(self):
-        results = {}
+        results = []
         # Prepare enclave ids list
         enclave_ids = self.job.user_conf.source_conf.get("enclave_ids")
         # If not available get all enclaves for the user and populate
@@ -78,7 +78,7 @@ class StationExtractor:
                         from_time=datetime_to_millis(self.job.last_run),
                     )
                 )
-                results.update({enclave: indicators})
+                results.append({enclave: indicators})
             except Exception as ex:
                 logger.error(
                     f"Failed to pull iocs from from enclave {enclave.name} "

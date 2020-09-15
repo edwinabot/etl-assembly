@@ -16,7 +16,9 @@ class MISPLoader:
     def _build_client(self):
         conf = self.job.user_conf.destination_conf
         secret = self.job.user_conf.destination_secrets
-        self.client = PyMISP(url=conf["url"], key=secret["key"])
+        self.client = PyMISP(
+            url=conf["url"], key=secret["key"], ssl=conf.get("ssl", True)
+        )
 
     @staticmethod
     def build_enclave_event(enclave: EnclavePermissions):
@@ -70,15 +72,16 @@ def load_to_enclave_event(job: Load):
     """
     loader = MISPLoader(job=job.job)
     results: dict = {"success": [], "error": []}
-    for enclave, attributes in job.transformed_data.items():
-        try:
-            event = loader.get_event(enclave.id)
-            if not event:
-                event = loader.build_enclave_event(enclave)
-            event.add_object(attributes)
-            loader.upsert_event(event)
-            results["success"].append((enclave, attributes))
-        except Exception as ex:
-            logger.exception(ex)
-            results["error"].append((enclave, attributes, ex))
+    for data in job.transformed_data:
+        for enclave, attributes in data.items():
+            try:
+                event = loader.get_event(enclave.id)
+                if not event:
+                    event = loader.build_enclave_event(enclave)
+                event.add_object(attributes)
+                loader.upsert_event(event)
+                results["success"].append((enclave, attributes))
+            except Exception as ex:
+                logger.exception(ex)
+                results["error"].append((enclave, attributes, ex))
     return results

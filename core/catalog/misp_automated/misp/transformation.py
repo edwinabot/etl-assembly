@@ -160,10 +160,11 @@ def ts_reports_to_misp_event(extracted_data):
 
 def ts_enclave_ioc_to_misp_attributes(extracted_data: dict):
     try:
-        for k, v in extracted_data.items():
-            obj = TrustarToMisp.iocs_to_misp_attributes(v)
-            extracted_data[k] = obj
-        return extracted_data
+        transformed = []
+        for enclave in extracted_data:
+            for k, v in enclave.items():
+                transformed.append({k: TrustarToMisp.iocs_to_misp_attributes(v)})
+        return transformed
     except Exception as ex:
         logger.error("Failed to transform data")
         logger.exception(ex)
