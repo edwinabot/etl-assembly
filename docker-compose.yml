@@ -1,7 +1,19 @@
 version: '3.7'
 services:
- dynamodb-local:
-   image: amazon/dynamodb-local:latest
-   container_name: dynamodb-local
-   ports:
-    - "8000:8000"
+  # dynamodb-local:
+  #   image: amazon/dynamodb-local:latest
+  #   container_name: dynamodb-local
+  #   ports:
+  #    - "8000:8000"
+  assembly:
+    build: .
+    container_name: etl-assembly
+    environment:
+      - LOGLEVEL
+      - FIXTURE_PATH
+      - JOB_TABLE
+      - USER_CONF_TABLE
+      - TEMPLATES_TABLE
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION
