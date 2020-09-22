@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from requests import HTTPError
 
 from trustar import TruStar, datetime_to_millis
 
@@ -48,7 +49,12 @@ class StationExtractor:
         return list(self.client.get_enclave_tags(report.id))
 
     def get_indicators_for_report(self, report):
-        return list(self.client.get_indicators_for_report(report.id))
+        try:
+            return list(self.client.get_indicators_for_report(report.id))
+        except HTTPError as ex:
+            if ex.response.status_code == 404:
+                logger.debug(f"No IOCs found for {report.id}")
+                return []
 
     def get_enclave_iocs(self):
         results = []
