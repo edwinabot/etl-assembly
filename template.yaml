@@ -27,7 +27,14 @@ Parameters:
       - Staging
       - Production
       - Development
-    ConstraintDescription: "Must be one of: Staging, Production"
+    ConstraintDescription: "Must be one of: Staging, Production, Development"
+  SecurityGroupIds:
+    Description: The security group the lambdas will use for internet outbound traffic
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  SubnetIds:
+    Description: The subnets the lambdas will use for internet outbound traffic
+    Type: List<AWS::EC2::Subnet::Id>
+
 
 Resources:
   EtlAssemblyCoreLayer:
@@ -75,6 +82,9 @@ Resources:
       FunctionName: !Sub ${EnvironmentName}-ExtractionFunction
       Layers:
         - Ref: EtlAssemblyCoreLayer
+      VpcConfig:
+        SecurityGroupIds: ${SecurityGroupIds}
+        SubnetIds: ${SubnetIds}
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -104,8 +114,10 @@ Resources:
             - Effect: Allow
               Action:
                 - ec2:CreateNetworkInterface
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
               Resource:
-                - arn:aws:ec2:*:*:network-interface/*
+                - '*'
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -155,6 +167,9 @@ Resources:
       FunctionName: !Sub ${EnvironmentName}-LoadFunction
       Layers:
         - Ref: EtlAssemblyCoreLayer
+      VpcConfig:
+        SecurityGroupIds: ${SecurityGroupIds}
+        SubnetIds: ${SubnetIds}
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -172,6 +187,15 @@ Resources:
                 - ec2:CreateNetworkInterface
               Resource:
                 - arn:aws:ec2:*:*:network-interface/*
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+              Resource:
+                - '*'
       Events:
         ExtractionJobEvent:
           Type: SQS
