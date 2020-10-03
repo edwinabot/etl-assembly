@@ -3,6 +3,27 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   ETL-Assembly
 
+Parameters:
+  EnvironmentName:
+    Description: The environment to deploy this to.
+    Type: String
+    Default: Staging
+    AllowedValues:
+      - Staging
+      - Production
+      - Development
+    ConstraintDescription: "Must be one of: Staging, Production, Development"
+  SecurityGroupId:
+    Description: The security group the lambdas will use for internet outbound traffic
+    Type: AWS::EC2::SecurityGroup::Id
+  # TODO: https://aws.amazon.com/premiumsupport/knowledge-center/cloudformation-parameter-validation/
+  SubnetIdAz0:
+    Description: AZ0 subnet the lambdas will use for internet outbound traffic
+    Type: AWS::EC2::Subnet::Id
+  SubnetIdAz1:
+    Description: AZ1 subnet the lambdas will use for internet outbound traffic
+    Type: AWS::EC2::Subnet::Id
+
 Globals:
   Function:
     Timeout: 900
@@ -17,24 +38,6 @@ Globals:
         TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
         LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
         LOGLEVEL: DEBUG
-
-Parameters:
-  EnvironmentName:
-    Description: The environment to deploy this to.
-    Type: String
-    Default: Staging
-    AllowedValues:
-      - Staging
-      - Production
-      - Development
-    ConstraintDescription: "Must be one of: Staging, Production, Development"
-  SecurityGroupIds:
-    Description: The security group the lambdas will use for internet outbound traffic
-    Type: List<AWS::EC2::SecurityGroup::Id>
-  SubnetIds:
-    Description: The subnets the lambdas will use for internet outbound traffic
-    Type: List<AWS::EC2::Subnet::Id>
-
 
 Resources:
   EtlAssemblyCoreLayer:
@@ -83,8 +86,11 @@ Resources:
       Layers:
         - Ref: EtlAssemblyCoreLayer
       VpcConfig:
-        SecurityGroupIds: ${SecurityGroupIds}
-        SubnetIds: ${SubnetIds}
+        SecurityGroupIds:
+          - !Sub ${SecurityGroupId}
+        SubnetIds:
+          - !Sub ${SubnetIdAz0}
+          - !Sub ${SubnetIdAz1}
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -117,7 +123,7 @@ Resources:
                 - ec2:DescribeNetworkInterfaces
                 - ec2:DeleteNetworkInterface
               Resource:
-                - '*'
+                - "*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -168,8 +174,11 @@ Resources:
       Layers:
         - Ref: EtlAssemblyCoreLayer
       VpcConfig:
-        SecurityGroupIds: ${SecurityGroupIds}
-        SubnetIds: ${SubnetIds}
+        SecurityGroupIds:
+          - !Sub ${SecurityGroupId}
+        SubnetIds:
+          - !Sub ${SubnetIdAz0}
+          - !Sub ${SubnetIdAz1}
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -185,17 +194,10 @@ Resources:
             - Effect: Allow
               Action:
                 - ec2:CreateNetworkInterface
-              Resource:
-                - arn:aws:ec2:*:*:network-interface/*
-        - Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - ec2:CreateNetworkInterface
                 - ec2:DescribeNetworkInterfaces
                 - ec2:DeleteNetworkInterface
               Resource:
-                - '*'
+                - "*"
       Events:
         ExtractionJobEvent:
           Type: SQS
