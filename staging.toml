@@ -1,0 +1,11 @@
+version = 0.1
+[staging]
+[staging.deploy]
+[staging.deploy.parameters]
+stack_name = "ETL-Assembly-Staging"
+s3_bucket = "samclisourcebucket-trustar-etl-assembly-staging"
+s3_prefix = "ETL-Assembly"
+region = "us-east-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = "EnvironmentName=\"Staging\""
+tags = "application=\"etl-assembly\" stage=\"Staging\""

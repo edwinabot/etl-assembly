@@ -26,6 +26,7 @@ Parameters:
     AllowedValues:
       - Staging
       - Production
+      - Development
     ConstraintDescription: "Must be one of: Staging, Production"
 
 Resources:
@@ -98,6 +99,13 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt TransformJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+              Resource:
+                - arn:aws:ec2:*:*:network-interface/*
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -157,6 +165,13 @@ Resources:
                 - !GetAtt JobTable.Arn
                 - !GetAtt TemplatesTable.Arn
                 - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+              Resource:
+                - arn:aws:ec2:*:*:network-interface/*
       Events:
         ExtractionJobEvent:
           Type: SQS
