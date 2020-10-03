@@ -14,16 +14,16 @@ def do_something(job: Union[Extract, Transform, Load]):
 
 
 def do_some_extraction(job: Union[Extract, Transform, Load]):
-    result = do_something(job)
-    response = requests.get("https://www.trustar.co/")
+    response = requests.get("https://www.trustar.co/", timeout=3)
     response.raise_for_status()
+    result = do_something(job)
     return result
 
 
 def do_some_loading(job: Union[Extract, Transform, Load]):
-    result = do_something(job)
-    response = requests.get("https://www.trustar.co/")
+    response = requests.get("https://www.trustar.co/", timeout=3)
     response.raise_for_status()
+    result = do_something(job)
     return result
 
 
