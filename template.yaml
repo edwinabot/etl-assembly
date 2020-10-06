@@ -13,16 +13,6 @@ Parameters:
       - Production
       - Development
     ConstraintDescription: "Must be one of: Staging, Production, Development"
-  SecurityGroupId:
-    Description: The security group the lambdas will use for internet outbound traffic
-    Type: AWS::EC2::SecurityGroup::Id
-  # TODO: https://aws.amazon.com/premiumsupport/knowledge-center/cloudformation-parameter-validation/
-  SubnetIdAz0:
-    Description: AZ0 subnet the lambdas will use for internet outbound traffic
-    Type: AWS::EC2::Subnet::Id
-  SubnetIdAz1:
-    Description: AZ1 subnet the lambdas will use for internet outbound traffic
-    Type: AWS::EC2::Subnet::Id
 
 Globals:
   Function:
@@ -85,12 +75,6 @@ Resources:
       FunctionName: !Sub ${EnvironmentName}-ExtractionFunction
       Layers:
         - Ref: EtlAssemblyCoreLayer
-      VpcConfig:
-        SecurityGroupIds:
-          - !Sub ${SecurityGroupId}
-        SubnetIds:
-          - !Sub ${SubnetIdAz0}
-          - !Sub ${SubnetIdAz1}
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -115,15 +99,6 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt TransformJobsQueue.Arn
-        - Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - ec2:CreateNetworkInterface
-                - ec2:DescribeNetworkInterfaces
-                - ec2:DeleteNetworkInterface
-              Resource:
-                - "*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -173,12 +148,6 @@ Resources:
       FunctionName: !Sub ${EnvironmentName}-LoadFunction
       Layers:
         - Ref: EtlAssemblyCoreLayer
-      VpcConfig:
-        SecurityGroupIds:
-          - !Sub ${SecurityGroupId}
-        SubnetIds:
-          - !Sub ${SubnetIdAz0}
-          - !Sub ${SubnetIdAz1}
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -189,15 +158,6 @@ Resources:
                 - !GetAtt JobTable.Arn
                 - !GetAtt TemplatesTable.Arn
                 - !GetAtt UserConfTable.Arn
-        - Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - ec2:CreateNetworkInterface
-                - ec2:DescribeNetworkInterfaces
-                - ec2:DeleteNetworkInterface
-              Resource:
-                - "*"
       Events:
         ExtractionJobEvent:
           Type: SQS
