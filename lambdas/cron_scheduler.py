@@ -124,9 +124,13 @@ class DynamoRemoveHandler:
         logger.debug(f"Removing cronjob for deleted configuration {conf_id}")
         self.events = events
         self.lambdas = lambdas
-        rule_name = get_rule_name(conf_id)
-        self.revoke_lambda_permissions(conf_id, rule_name)
-        logger.info(f"Removed EventBridge rule for deleted Job id:{conf_id}")
+        try:
+            rule_name = get_rule_name(conf_id)
+            self.revoke_lambda_permissions(conf_id, rule_name)
+            logger.info(f"Removed EventBridge rule for deleted Job id:{conf_id}")
+        except Exception as ex:
+            logger.warning(ex)
+            return
 
     def revoke_lambda_permissions(self, conf_id, rule_name):
         self.lambdas.remove_permission(
