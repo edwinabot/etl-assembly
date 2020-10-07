@@ -55,9 +55,9 @@ if __name__ == "__main__":
     A main function usefull for local development and integration testing
     """
 
-    extract_jobs = InMemoryQueue()
-    transform_jobs = InMemoryQueue()
-    load_jobs = InMemoryQueue()
+    extract_jobs = InMemoryQueue(job_type=Extract)
+    transform_jobs = InMemoryQueue(job_type=Transform)
+    load_jobs = InMemoryQueue(job_type=Load)
 
     job_creation_stage(args.job_id, extract_jobs)
 

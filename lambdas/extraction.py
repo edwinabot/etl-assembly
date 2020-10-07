@@ -1,5 +1,5 @@
 from core import config
-from core.etl import SqsQueue, Extract
+from core.etl import SqsQueue, Extract, Transform
 from core.assembly import extraction_stage
 from core.logs import get_logger
 
@@ -11,6 +11,7 @@ def lambda_handler(event, context):
     logger.debug(context)
     transformation_queue = SqsQueue(
         queue_url=config.TRANSFORM_JOBS_QUEUE,
+        job_type=Transform,
         large_payload_bucket=config.BIG_PAYLOADS_BUCKET,
     )
     for record in event["Records"]:
