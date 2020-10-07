@@ -169,12 +169,12 @@ class Load(BaseJob):
         )
 
     def as_dict(self):
-        return {"job": self.job.to_dict(), "extracted_data": self.extracted_data}
+        return {"job": self.job.to_dict(), "transformed_data": self.transformed_data}
 
     @classmethod
     def from_dict(cls, source_dict):
         job = Job.from_dict(source_dict["job"])
-        return cls(job, source_dict["extracted_data"])
+        return cls(job, source_dict["transformed_data"])
 
 
 class AbstractQueue(ABC):

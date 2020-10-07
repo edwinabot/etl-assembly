@@ -57,7 +57,9 @@ def load_events(job: Load):
     results: dict = {"success": [], "error": []}
     for element in job.transformed_data:
         try:
-            loader.upsert_event(element)
+            event = MISPEvent()
+            event.from_json(element)
+            loader.upsert_event(event)
             results["success"].append(element)
         except Exception as ex:
             logger.exception(ex)

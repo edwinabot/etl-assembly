@@ -1,4 +1,4 @@
-from trustar import Report, Tag
+from trustar import Report, Tag, Indicator
 from pymisp import MISPEvent, MISPObject
 
 from core.logs import get_logger
@@ -91,11 +91,15 @@ class TrustarToMisp:
         # Iterate through each TruSTAR report and create MISP events for each
         for element in extracted_reports:
             try:
-                logger.info(f"Tranforming {element['report'].id}")
+
+                logger.info(f"Tranforming {element['report']['id']}")
                 # Initialize and set MISPEvent()
-                report = element["report"]
-                tags = element["tags"] + [Tag("TruSTAR"), Tag("Report")]
-                indicators = element["indicators"]
+                report = Report.from_dict(element["report"])
+                tags = [Tag.from_dict(t) for t in element["tags"]] + [
+                    Tag("TruSTAR"),
+                    Tag("Report"),
+                ]
+                indicators = [Indicator.from_dict(i) for i in element["indicators"]]
 
                 event = MISPEvent()
                 event.info = f"TruSTAR Report: {report.title}"
@@ -123,7 +127,7 @@ class TrustarToMisp:
                 event.add_object(obj)
                 event.add_attribute("link", element["deeplink"])
 
-                events.append(event)
+                events.append(event.to_json())
             except KeyError as k:
                 logger.error(f"Missing {k}")
             except Exception as e:
