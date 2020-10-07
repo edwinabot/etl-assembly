@@ -303,4 +303,9 @@ Resources:
   BigPayloadsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
+      BucketName: trustar-etl-assembly-bigpayloadsbucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
