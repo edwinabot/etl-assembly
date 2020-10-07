@@ -51,8 +51,12 @@ class MispToTrustar:
         """
         results = []
         for item in self.feed:
-            report, tags = self.process_event(item)
-            results.append({"report": report, "tags": tags})
+            event = MISPEvent()
+            event.from_json(item)
+            report, tags = self.process_event(event)
+            results.append(
+                {"report": report.to_dict(), "tags": tags}
+            )
         return results
 
     def get_tags_from_attributes(self, list_attributes):
@@ -77,7 +81,7 @@ class MispToTrustar:
                         )
                     )
 
-        return attribute_tags
+        return list(attribute_tags)
 
 
 class TrustarToMisp:
