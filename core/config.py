@@ -18,5 +18,6 @@ try:
     EXTRACT_JOBS_QUEUE = os.getenv("EXTRACT_JOBS_QUEUE", None)
     TRANSFORM_JOBS_QUEUE = os.getenv("TRANSFORM_JOBS_QUEUE", None)
     LOAD_JOBS_QUEUE = os.getenv("LOAD_JOBS_QUEUE", None)
+    BIG_PAYLOADS_BUCKET = os.getenv("BIG_PAYLOADS_BUCKET", None)
 except KeyError as k:
     raise Exception(f"Missing {k} environment variable")

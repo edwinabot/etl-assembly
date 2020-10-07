@@ -9,7 +9,10 @@ logger = get_logger(__name__)
 def lambda_handler(event, context):
     logger.debug(event)
     logger.debug(context)
-    load_queue = SqsQueue(queue_url=config.LOAD_JOBS_QUEUE)
+    load_queue = SqsQueue(
+        queue_url=config.LOAD_JOBS_QUEUE,
+        large_payload_bucket=config.BIG_PAYLOADS_BUCKET,
+    )
     for record in event["Records"]:
         serialized_job = record["body"]
         job = Transform.deserialize(serialized_job)

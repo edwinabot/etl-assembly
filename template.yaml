@@ -27,6 +27,7 @@ Globals:
         EXTRACT_JOBS_QUEUE: !Ref ExtractJobsQueue
         TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
         LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
+        BIG_PAYLOADS_BUCKET: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
         LOGLEVEL: DEBUG
 
 Resources:
@@ -102,9 +103,18 @@ Resources:
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Action: "*"
+              Action:
+                - s3:GetObject
               Resource:
                 - !GetAtt BigPayloadsBucket.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub 'arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*'
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -141,9 +151,18 @@ Resources:
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Action: "*"
+              Action:
+                - s3:GetObject
               Resource:
                 - !GetAtt BigPayloadsBucket.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub 'arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*'
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -173,9 +192,18 @@ Resources:
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Action: "*"
+              Action:
+                - s3:GetObject
               Resource:
                 - !GetAtt BigPayloadsBucket.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub 'arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*'
       Events:
         ExtractionJobEvent:
           Type: SQS
