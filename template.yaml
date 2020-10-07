@@ -99,6 +99,12 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt TransformJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: "*"
+              Resource:
+                - !GetAtt BigPayloadsBucket.Arn
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -132,6 +138,12 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt LoadJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: "*"
+              Resource:
+                - !GetAtt BigPayloadsBucket.Arn
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -158,6 +170,12 @@ Resources:
                 - !GetAtt JobTable.Arn
                 - !GetAtt TemplatesTable.Arn
                 - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: "*"
+              Resource:
+                - !GetAtt BigPayloadsBucket.Arn
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -281,3 +299,8 @@ Resources:
         StreamViewType: KEYS_ONLY
       BillingMode: PAY_PER_REQUEST
       TableName: !Sub ${EnvironmentName}-JobTable
+
+  BigPayloadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket

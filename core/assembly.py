@@ -1,7 +1,5 @@
-from math import ceil
 from datetime import datetime, timezone
 from typing import Any, Union
-from pympler.asizeof import asizesof
 
 from core.etl import (
     AbstractQueue,
@@ -101,19 +99,7 @@ def run_extraction_job(extract_job: Extract) -> Any:
     return extracted_data
 
 
-def partition_data(data: list, partition_count: int):
-    chunk_size = ceil(len(data) / partition_count)
-    left, right = 0, chunk_size
-    partitions = []
-    while left < len(data):
-        partitions.append(data[left:right])
-        left, right = right, right + chunk_size
-    return partitions
-
-
-def create_transformation_job(
-    extract_job: Extract, extracted_data: list, partition_size: int = 256000
-) -> list:
+def create_transformation_job(extract_job: Extract, extracted_data: list) -> list:
     """
     Creates a Transform job following and Extract job for the extracted data
 
@@ -125,16 +111,9 @@ def create_transformation_job(
     :partition_size: int: Data partition size in bytes
     """
     jobs = []
-    size = asizesof(extracted_data)[0]
-    if partition_size and size >= partition_size:
-        partitioned_data = partition_data(extracted_data, ceil(size / partition_size))
-        for part in partitioned_data:
-            transform_job = Transform.build(extract_job.job, part)
-            jobs.append(transform_job)
-    else:
-        logger.info(f"Building a Transform job {extract_job.job.id}")
-        transform_job = Transform.build(extract_job.job, extracted_data)
-        jobs.append(transform_job)
+    logger.info(f"Building a Transform job {extract_job.job.id}")
+    transform_job = Transform.build(extract_job.job, extracted_data)
+    jobs.append(transform_job)
     return jobs
 
 
@@ -144,20 +123,11 @@ def run_transformation_job(transform_job: Transform) -> Any:
     return transformed_data
 
 
-def create_loading_job(
-    transform_job: Transform, transformed_data: Any, partition_size: int = 256000
-) -> list:
+def create_loading_job(transform_job: Transform, transformed_data: Any) -> list:
     jobs = []
-    size = asizesof(transformed_data)[0]
-    if partition_size and size >= partition_size:
-        partitioned_data = partition_data(transformed_data, ceil(size / partition_size))
-        for part in partitioned_data:
-            load_job = Load.build(transform_job.job, part)
-            jobs.append(load_job)
-    else:
-        logger.info(f"Building a Load job {transform_job.job.id}")
-        load_job = Load.build(transform_job.job, transformed_data)
-        jobs.append(load_job)
+    logger.info(f"Building a Load job {transform_job.job.id}")
+    load_job = Load.build(transform_job.job, transformed_data)
+    jobs.append(load_job)
     return jobs
 
 

@@ -21,6 +21,7 @@ boto3 = "*"
 pymisp = "*"
 trustar = "*"
 pympler = "*"
+sqs-extended-client = "*"
 
 [requires]
 python_version = "3.8"

@@ -3,10 +3,11 @@ import codecs
 import pickle
 import importlib
 from datetime import datetime
-from queue import Queue
+from queue import Empty, Queue
 from typing import Union, List
 
 import boto3
+import sqs_extended_client  # noqa: F401
 
 from core.registry import Job
 from core.logs import get_logger
@@ -167,9 +168,11 @@ class InMemoryQueue(AbstractQueue):
 
 
 class SqsQueue(AbstractQueue):
-    def __init__(self, queue_url: str):
+    def __init__(self, queue_url: str, large_payload_bucket: str = None):
         self.queue_url = queue_url
         self.sqs = boto3.client("sqs")
+        if large_payload_bucket:
+            self.sqs.large_payload_support = large_payload_bucket
 
     def put(self, jobs: List[Union[Extract, Transform, Load]]):
         # Send message to SQS queue
@@ -189,7 +192,8 @@ class SqsQueue(AbstractQueue):
             MessageAttributeNames=["All"],
             AttributeNames=["ALL"],
         )
-
+        if "Messages" not in response:
+            raise Empty
         message = response["Messages"][0]
         job = BaseJob.deserialize(message["Body"])
         receipt_handle = message["ReceiptHandle"]
