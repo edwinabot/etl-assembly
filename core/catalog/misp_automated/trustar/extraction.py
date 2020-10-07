@@ -79,7 +79,12 @@ class StationExtractor:
                         from_time=datetime_to_millis(self.job.last_run),
                     )
                 )
-                results.append({enclave: [i.to_dict() for i in indicators]})
+                results.append(
+                    {
+                        "enclave": enclave.to_dict(),
+                        "iocs": [i.to_dict() for i in indicators],
+                    }
+                )
             except Exception as ex:
                 logger.error(
                     f"Failed to pull iocs from from enclave {enclave.name} "

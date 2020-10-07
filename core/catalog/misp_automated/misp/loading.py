@@ -1,5 +1,5 @@
 from pymisp import PyMISP, MISPEvent
-from trustar.models.enclave import EnclavePermissions
+from trustar.models.enclave import Enclave, EnclavePermissions
 
 from core.registry import Job
 from core.etl import Load
@@ -21,7 +21,7 @@ class MISPLoader:
         )
 
     @staticmethod
-    def build_enclave_event(enclave: EnclavePermissions):
+    def build_enclave_event(enclave: Enclave):
         event = MISPEvent()
         event.uuid = enclave.id
         event.info = f"TruSTAR Enclave: {enclave.name}"
@@ -75,15 +75,16 @@ def load_to_enclave_event(job: Load):
     loader = MISPLoader(job=job.job)
     results: dict = {"success": [], "error": []}
     for data in job.transformed_data:
-        for enclave, attributes in data.items():
-            try:
-                event = loader.get_event(enclave.id)
-                if not event:
-                    event = loader.build_enclave_event(enclave)
-                event.add_object(attributes)
-                loader.upsert_event(event)
-                results["success"].append((enclave, attributes))
-            except Exception as ex:
-                logger.exception(ex)
-                results["error"].append((enclave, attributes, ex))
+        enclave = Enclave.from_dict(data['enclave'])
+        attributes = data['iocs']
+        try:
+            event = loader.get_event(enclave.id)
+            if not event:
+                event = loader.build_enclave_event(enclave)
+            event.add_object(attributes)
+            loader.upsert_event(event)
+            results["success"].append((enclave, attributes))
+        except Exception as ex:
+            logger.exception(ex)
+            results["error"].append((enclave, attributes, ex))
     return results

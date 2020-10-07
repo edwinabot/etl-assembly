@@ -54,9 +54,7 @@ class MispToTrustar:
             event = MISPEvent()
             event.from_json(item)
             report, tags = self.process_event(event)
-            results.append(
-                {"report": report.to_dict(), "tags": tags}
-            )
+            results.append({"report": report.to_dict(), "tags": tags})
         return results
 
     def get_tags_from_attributes(self, list_attributes):
@@ -152,7 +150,7 @@ class TrustarToMisp:
                 obj.add_attribute(indicator.type, indicator.value)
             except Exception as ex:
                 logger.error(f"Failed to transform IOC {indicator} with error {ex}")
-        return obj
+        return obj.to_json()
 
 
 def for_trustar_reports(extracted_data):
@@ -169,9 +167,13 @@ def ts_reports_to_misp_event(extracted_data):
 def ts_enclave_ioc_to_misp_attributes(extracted_data: dict):
     try:
         transformed = []
-        for enclave in extracted_data:
-            for k, v in enclave.items():
-                transformed.append({k: TrustarToMisp.iocs_to_misp_attributes(v)})
+        for data in extracted_data:
+            transformed.append(
+                {
+                    "enclave": data["enclave"],
+                    "iocs": TrustarToMisp.iocs_to_misp_attributes(data["iocs"]),
+                }
+            )
         return transformed
     except Exception as ex:
         logger.error("Failed to transform data")
