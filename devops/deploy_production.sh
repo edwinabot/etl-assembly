@@ -3,7 +3,7 @@ sam deploy \
     --s3-prefix production \
     --region us-east-1 \
     --parameter-overrides \
-        'EnvironmentName="Production"' \
+        'EnvironmentName="production"' \
     --stack-name ETL-Assembly-Production \
     --capabilities CAPABILITY_NAMED_IAM \
     --profile $1

@@ -3,7 +3,7 @@ sam deploy \
     --s3-prefix staging \
     --region us-east-1 \
     --parameter-overrides \
-        'EnvironmentName="Staging"' \
+        'EnvironmentName="staging"' \
     --stack-name ETL-Assembly-Staging \
     --capabilities CAPABILITY_NAMED_IAM \
     --profile $1

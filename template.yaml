@@ -7,12 +7,12 @@ Parameters:
   EnvironmentName:
     Description: The environment to deploy this to.
     Type: String
-    Default: Staging
+    Default: staging
     AllowedValues:
-      - Staging
-      - Production
-      - Development
-    ConstraintDescription: "Must be one of: Staging, Production, Development"
+      - staging
+      - production
+      - development
+    ConstraintDescription: "Must be one of: staging, production, development"
 
 Globals:
   Function:
@@ -303,7 +303,7 @@ Resources:
   BigPayloadsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: trustar-etl-assembly-bigpayloadsbucket
+      BucketName: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
