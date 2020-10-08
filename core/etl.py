@@ -203,6 +203,8 @@ class InMemoryQueue(AbstractQueue):
 
 
 class SqsQueue(AbstractQueue):
+    MESSAGE_POINTER_CLASS = "com.amazon.sqs.javamessaging.MessageS3Pointer"
+
     def __init__(
         self,
         queue_url: str,
@@ -230,11 +232,44 @@ class SqsQueue(AbstractQueue):
     def get(self) -> Union[Extract, Transform, Load]:
         response = self.get_raw()
         message = response["Messages"][0]
-        job = self.job_type.deserialize(message["Body"])
+        job = self.build_job(message["Body"])
         receipt_handle = message["ReceiptHandle"]
         # Delete received message from queue
-        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receipt_handle)
+        self.delete_message(receipt_handle)
         return job
+
+    def build_job(self, message_body):
+        try:
+            deserialized_message = json.loads(message_body)
+        except json.decoder.JSONDecodeError:
+            message_body = message_body.replace("'", '"')
+            deserialized_message = json.loads(message_body)
+        if (
+            isinstance(deserialized_message, list)
+            and len(deserialized_message) == 2
+            and deserialized_message[0] == self.MESSAGE_POINTER_CLASS
+        ):
+            raw_payload = deserialized_message[1]
+            payload = self.get_payload_from_s3(
+                raw_payload["s3BucketName"], raw_payload["s3Key"]
+            )
+            job = self.job_type.deserialize(payload)
+        else:
+            job = self.job_type.deserialize(message_body)
+        return job
+
+    def get_payload_from_s3(self, bucket_name, object_key):
+        """
+        Retrieves the configuration file from the specified bucket,
+        parses the JSON to a list of dicts
+        """
+        s3 = boto3.resource("s3")
+        bucket = s3.Bucket(bucket_name)
+        obj = bucket.Object(key=object_key)
+        logger.debug(f"Getting {bucket}/{obj}")
+        response = obj.get()
+        lines: bytes = response["Body"].read()
+        return lines
 
     def get_raw(self) -> dict:
         response = self.sqs.receive_message(
@@ -245,6 +280,7 @@ class SqsQueue(AbstractQueue):
         )
         if "Messages" not in response:
             raise Empty
+        logger.debug(response)
         return response
 
     def delete_message(self, receip_handle):

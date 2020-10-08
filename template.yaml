@@ -104,9 +104,16 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
+                - sqs:DeleteMessage
+              Resource:
+                - !GetAtt ExtractJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
                 - s3:GetObject
               Resource:
-                - !GetAtt BigPayloadsBucket.Arn
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
@@ -114,7 +121,7 @@ Resources:
                 - s3:PutObject
                 - s3:DeleteObject
               Resource:
-                - !Sub 'arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*'
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -152,9 +159,16 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
+                - sqs:DeleteMessage
+              Resource:
+                - !GetAtt TransformJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
                 - s3:GetObject
               Resource:
-                - !GetAtt BigPayloadsBucket.Arn
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
@@ -162,7 +176,7 @@ Resources:
                 - s3:PutObject
                 - s3:DeleteObject
               Resource:
-                - !Sub 'arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*'
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -189,13 +203,21 @@ Resources:
                 - !GetAtt JobTable.Arn
                 - !GetAtt TemplatesTable.Arn
                 - !GetAtt UserConfTable.Arn
+
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+              Resource:
+                - !GetAtt LoadJobsQueue.Arn
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
               Action:
                 - s3:GetObject
               Resource:
-                - !GetAtt BigPayloadsBucket.Arn
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
@@ -203,7 +225,7 @@ Resources:
                 - s3:PutObject
                 - s3:DeleteObject
               Resource:
-                - !Sub 'arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*'
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
       Events:
         ExtractionJobEvent:
           Type: SQS
