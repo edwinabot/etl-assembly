@@ -6,17 +6,18 @@ from queue import Empty
 
 from core.logs import get_logger
 from core.etl import (
-    InMemoryQueue,
     Extract,
     Transform,
     Load,
 )
+from core.queues import get_in_memory_queues
 from core.assembly import (
     extraction_stage,
     transformation_stage,
     loading_stage,
     job_creation_stage,
 )
+
 from main import build_database
 
 
@@ -32,7 +33,8 @@ if __name__ == "__main__":
         help="(OPTIONAL) Recreate the database an load the fixture",
     ),
     parser.add_argument(
-        "job_id", help="Job ID to run",
+        "job_id",
+        help="Job ID to run",
     )
     args = parser.parse_args()
 
@@ -43,21 +45,15 @@ if __name__ == "__main__":
 
     # Simulate message queues
     logger.info("Building queues")
-    logger.info("Queues built")
 
     # Probably we want to programatically schedule executions. Check the link:
     # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/cw-example-events.html
     # CloudWatch events scheduling
 
-    # Build a job object
-
-    """
-    A main function usefull for local development and integration testing
-    """
-
-    extract_jobs = InMemoryQueue(job_type=Extract)
-    transform_jobs = InMemoryQueue(job_type=Transform)
-    load_jobs = InMemoryQueue(job_type=Load)
+    queues = get_in_memory_queues()
+    extract_jobs = queues.extract
+    transform_jobs = queues.transform
+    load_jobs = queues.load
 
     job_creation_stage(args.job_id, extract_jobs)
 

@@ -97,7 +97,8 @@ class Extract(BaseJob):
             The job configuration
         """
         super().__init__(
-            callable_path=job.template.extract, callable_arguments={"job": job},
+            callable_path=job.template.extract,
+            callable_arguments={"job": job},
         )
         self.job = job
 
@@ -165,7 +166,8 @@ class Load(BaseJob):
         self.job = job
         self.transformed_data = transformed_data
         super().__init__(
-            callable_path=self.job.template.load, callable_arguments={"job": self},
+            callable_path=self.job.template.load,
+            callable_arguments={"job": self},
         )
 
     def as_dict(self):
@@ -226,6 +228,15 @@ class SqsQueue(AbstractQueue):
             logger.debug(f"Queued {job.job.id} with MessageId {response['MessageId']}")
 
     def get(self) -> Union[Extract, Transform, Load]:
+        response = self.get_raw()
+        message = response["Messages"][0]
+        job = self.job_type.deserialize(message["Body"])
+        receipt_handle = message["ReceiptHandle"]
+        # Delete received message from queue
+        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receipt_handle)
+        return job
+
+    def get_raw(self) -> dict:
         response = self.sqs.receive_message(
             QueueUrl=self.queue_url,
             MaxNumberOfMessages=1,
@@ -234,9 +245,7 @@ class SqsQueue(AbstractQueue):
         )
         if "Messages" not in response:
             raise Empty
-        message = response["Messages"][0]
-        job = self.job_type.deserialize(message["Body"])
-        receipt_handle = message["ReceiptHandle"]
-        # Delete received message from queue
-        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receipt_handle)
-        return job
+        return response
+
+    def delete_message(self, receip_handle):
+        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receip_handle)
