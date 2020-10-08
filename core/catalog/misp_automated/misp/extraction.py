@@ -91,7 +91,7 @@ class FeedClient:
             logger.error(f"Could not query on MISP Client Error: {ex}")
             raise ex
         else:
-            return results
+            return [r.to_json() for r in results]
 
 
 def pull_feeds(job: Job):

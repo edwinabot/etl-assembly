@@ -57,7 +57,12 @@ class DynamoInsertHandler:
     def __call__(self, record, events, lambdas):
         self.events = events
         self.lambdas = lambdas
-        self.job = Job.get(record["dynamodb"]["Keys"]["id"]["S"])  # type: Job
+        self.job = None
+        try:
+            self.job = Job.get(record["dynamodb"]["Keys"]["id"]["S"])  # type: Job
+        except Exception as e:
+            logger.warning(e)
+            return
         rule_name = get_rule_name(self.job.id)
         rule_response = self.put_eventbridge_rule(rule_name)
         self.put_rule_targets(rule_name)
@@ -69,9 +74,7 @@ class DynamoInsertHandler:
             Name=rule_name,
             ScheduleExpression=self.job.user_conf.source_conf["frequency"],
             State="ENABLED",
-            Description=(
-                f"ETL-Assembly Rule Job ID: {self.job.id} {self.job.name}"
-            ),
+            Description=(f"ETL-Assembly Rule Job ID: {self.job.id} {self.job.name}"),
         )
         logger.debug(rule_response)
         return rule_response
@@ -121,9 +124,13 @@ class DynamoRemoveHandler:
         logger.debug(f"Removing cronjob for deleted configuration {conf_id}")
         self.events = events
         self.lambdas = lambdas
-        rule_name = get_rule_name(conf_id)
-        self.revoke_lambda_permissions(conf_id, rule_name)
-        logger.info(f"Removed EventBridge rule for deleted Job id:{conf_id}")
+        try:
+            rule_name = get_rule_name(conf_id)
+            self.revoke_lambda_permissions(conf_id, rule_name)
+            logger.info(f"Removed EventBridge rule for deleted Job id:{conf_id}")
+        except Exception as ex:
+            logger.warning(ex)
+            return
 
     def revoke_lambda_permissions(self, conf_id, rule_name):
         self.lambdas.remove_permission(

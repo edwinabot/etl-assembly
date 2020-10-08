@@ -1,5 +1,5 @@
 from pymisp import PyMISP, MISPEvent
-from trustar.models.enclave import EnclavePermissions
+from trustar.models.enclave import Enclave, EnclavePermissions
 
 from core.registry import Job
 from core.etl import Load
@@ -16,10 +16,12 @@ class MISPLoader:
     def _build_client(self):
         conf = self.job.user_conf.destination_conf
         secret = self.job.user_conf.destination_secrets
-        self.client = PyMISP(url=conf["url"], key=secret["key"])
+        self.client = PyMISP(
+            url=conf["url"], key=secret["key"], ssl=conf.get("ssl", True)
+        )
 
     @staticmethod
-    def build_enclave_event(enclave: EnclavePermissions):
+    def build_enclave_event(enclave: Enclave):
         event = MISPEvent()
         event.uuid = enclave.id
         event.info = f"TruSTAR Enclave: {enclave.name}"
@@ -55,7 +57,9 @@ def load_events(job: Load):
     results: dict = {"success": [], "error": []}
     for element in job.transformed_data:
         try:
-            loader.upsert_event(element)
+            event = MISPEvent()
+            event.from_json(element)
+            loader.upsert_event(event)
             results["success"].append(element)
         except Exception as ex:
             logger.exception(ex)
@@ -70,7 +74,9 @@ def load_to_enclave_event(job: Load):
     """
     loader = MISPLoader(job=job.job)
     results: dict = {"success": [], "error": []}
-    for enclave, attributes in job.transformed_data.items():
+    for data in job.transformed_data:
+        enclave = Enclave.from_dict(data['enclave'])
+        attributes = data['iocs']
         try:
             event = loader.get_event(enclave.id)
             if not event:

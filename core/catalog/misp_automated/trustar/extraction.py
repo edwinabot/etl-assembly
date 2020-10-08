@@ -36,7 +36,8 @@ class StationExtractor:
                 else datetime.utcnow() - timedelta(days=30)
             )
             response = self.client.get_reports(
-                is_enclave=True, from_time=datetime_to_millis(since),
+                is_enclave=True,
+                from_time=datetime_to_millis(since),
             )
             reports = list(response)
             logger.info(f"Got {len(reports)} since {since}")
@@ -51,7 +52,7 @@ class StationExtractor:
         return list(self.client.get_indicators_for_report(report.id))
 
     def get_enclave_iocs(self):
-        results = {}
+        results = []
         # Prepare enclave ids list
         enclave_ids = self.job.user_conf.source_conf.get("enclave_ids")
         # If not available get all enclaves for the user and populate
@@ -78,7 +79,12 @@ class StationExtractor:
                         from_time=datetime_to_millis(self.job.last_run),
                     )
                 )
-                results.update({enclave: indicators})
+                results.append(
+                    {
+                        "enclave": enclave.to_dict(),
+                        "iocs": [i.to_dict() for i in indicators],
+                    }
+                )
             except Exception as ex:
                 logger.error(
                     f"Failed to pull iocs from from enclave {enclave.name} "
@@ -105,9 +111,9 @@ def pull_reports(job: Job):
             indicators = extractor.get_indicators_for_report(report)
             results.append(
                 {
-                    "report": report,
-                    "tags": tags,
-                    "indicators": indicators,
+                    "report": report.to_dict(),
+                    "tags": [t.to_dict() for t in tags],
+                    "indicators": [i.to_dict() for i in indicators],
                     "deeplink": "/".join((report_deeplink_base, report.id)),
                 }
             )

@@ -3,6 +3,17 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   ETL-Assembly
 
+Parameters:
+  EnvironmentName:
+    Description: The environment to deploy this to.
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
+      - development
+    ConstraintDescription: "Must be one of: staging, production, development"
+
 Globals:
   Function:
     Timeout: 900
@@ -16,17 +27,8 @@ Globals:
         EXTRACT_JOBS_QUEUE: !Ref ExtractJobsQueue
         TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
         LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
-        LOGLEVEL: DEBUG
-
-Parameters:
-  EnvironmentName:
-    Description: The environment to deploy this to.
-    Type: String
-    Default: Staging
-    AllowedValues:
-      - Staging
-      - Production
-    ConstraintDescription: "Must be one of: Staging, Production"
+        BIG_PAYLOADS_BUCKET: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
+        LOGLEVEL: INFO
 
 Resources:
   EtlAssemblyCoreLayer:
@@ -98,6 +100,28 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt TransformJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+              Resource:
+                - !GetAtt ExtractJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -131,6 +155,28 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt LoadJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+              Resource:
+                - !GetAtt TransformJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -157,6 +203,29 @@ Resources:
                 - !GetAtt JobTable.Arn
                 - !GetAtt TemplatesTable.Arn
                 - !GetAtt UserConfTable.Arn
+
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+              Resource:
+                - !GetAtt LoadJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
       Events:
         ExtractionJobEvent:
           Type: SQS
@@ -280,3 +349,13 @@ Resources:
         StreamViewType: KEYS_ONLY
       BillingMode: PAY_PER_REQUEST
       TableName: !Sub ${EnvironmentName}-JobTable
+
+  BigPayloadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True

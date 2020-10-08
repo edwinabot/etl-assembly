@@ -15,6 +15,8 @@ from core.database import (
     UserConfTable,
 )
 
+logger = get_logger(__name__)
+
 
 def build_database():
     tables = [TemplateTable, JobTable, UserConfTable]
@@ -40,8 +42,6 @@ if __name__ == "__main__":
         "job_id", help="Job ID to run",
     )
     args = parser.parse_args()
-
-    logger = get_logger("main")
 
     if args.build_database:
         build_database()

@@ -1,6 +1,5 @@
 from requests import HTTPError
-from trustar import TruStar
-from trustar.models import Report
+from trustar import TruStar, Report
 
 from core.logs import get_logger
 from core.etl import Load, Job
@@ -36,7 +35,7 @@ def load_reports(job: Load):
     results: dict = {"success": [], "error": []}
     for element in job.transformed_data:
         try:
-            loader.submit_report(element.get("report"))
+            loader.submit_report(Report.from_dict(element.get("report")))
             results["success"].append(element)
         except Exception as ex:
             logger.exception(ex)

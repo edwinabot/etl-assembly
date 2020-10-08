@@ -177,6 +177,24 @@ class Job(ActiveRecordMixin):
         else:
             self._last_run = datetime.now(timezone.utc)
 
+    def to_dict(self):
+        return {
+            "_id": self._id,
+            "template": self._template
+            if isinstance(self._template, str)
+            else self._template.id,
+            "user_conf": self._user_conf
+            if isinstance(self._user_conf, str)
+            else self._user_conf.id,
+            "last_run": self.last_run.isoformat(),
+            "name": self.name,
+            "description": self.description,
+        }
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        return cls(**source_dict)
+
     @property
     def id(self):
         return self._id
