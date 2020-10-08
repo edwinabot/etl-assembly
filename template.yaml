@@ -28,7 +28,7 @@ Globals:
         TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
         LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
         BIG_PAYLOADS_BUCKET: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
-        LOGLEVEL: DEBUG
+        LOGLEVEL: INFO
 
 Resources:
   EtlAssemblyCoreLayer:
