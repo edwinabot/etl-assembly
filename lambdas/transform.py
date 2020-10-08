@@ -13,4 +13,4 @@ def lambda_handler(event, context):
         serialized_job = record["body"]
         job = queues.transform.build_job(serialized_job)
         transformation_stage(job, queues.load)
-        queues.transform.delete_message(record['receiptHandle'])
+        queues.transform.delete_message(record["receiptHandle"])

@@ -97,8 +97,7 @@ class Extract(BaseJob):
             The job configuration
         """
         super().__init__(
-            callable_path=job.template.extract,
-            callable_arguments={"job": job},
+            callable_path=job.template.extract, callable_arguments={"job": job},
         )
         self.job = job
 
@@ -166,8 +165,7 @@ class Load(BaseJob):
         self.job = job
         self.transformed_data = transformed_data
         super().__init__(
-            callable_path=self.job.template.load,
-            callable_arguments={"job": self},
+            callable_path=self.job.template.load, callable_arguments={"job": self},
         )
 
     def as_dict(self):
