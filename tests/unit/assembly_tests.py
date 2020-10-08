@@ -16,7 +16,7 @@ def test_extraction_stage(job):
     from core.etl import InMemoryQueue, Extract, Transform
 
     extract_job = Extract.build(job=job)
-    queue = InMemoryQueue()
+    queue = InMemoryQueue(job_type=Extract)
     extraction_stage(extract_job=extract_job, queue=queue)
     transform_job = queue.get()  # type: Transform
     assert isinstance(transform_job, Transform)
@@ -28,7 +28,7 @@ def test_transformation_stage(job):
     from core.etl import InMemoryQueue, Transform, Load
 
     transform = Transform(job, ["foo", "bar", "baz"])
-    queue = InMemoryQueue()
+    queue = InMemoryQueue(job_type=Transform)
     transformation_stage(transform_job=transform, queue=queue)
     load_job = queue.get()  # type: Load
     assert isinstance(load_job, Load)

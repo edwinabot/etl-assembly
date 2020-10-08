@@ -1,4 +1,4 @@
-from trustar import Report, Tag
+from trustar import Report, Tag, Indicator
 from pymisp import MISPEvent, MISPObject
 
 from core.logs import get_logger
@@ -51,8 +51,10 @@ class MispToTrustar:
         """
         results = []
         for item in self.feed:
-            report, tags = self.process_event(item)
-            results.append({"report": report, "tags": tags})
+            event = MISPEvent()
+            event.from_json(item)
+            report, tags = self.process_event(event)
+            results.append({"report": report.to_dict(), "tags": tags})
         return results
 
     def get_tags_from_attributes(self, list_attributes):
@@ -77,7 +79,7 @@ class MispToTrustar:
                         )
                     )
 
-        return attribute_tags
+        return list(attribute_tags)
 
 
 class TrustarToMisp:
@@ -91,11 +93,15 @@ class TrustarToMisp:
         # Iterate through each TruSTAR report and create MISP events for each
         for element in extracted_reports:
             try:
-                logger.info(f"Tranforming {element['report'].id}")
+
+                logger.info(f"Tranforming {element['report']['id']}")
                 # Initialize and set MISPEvent()
-                report = element["report"]
-                tags = element["tags"] + [Tag("TruSTAR"), Tag("Report")]
-                indicators = element["indicators"]
+                report = Report.from_dict(element["report"])
+                tags = [Tag.from_dict(t) for t in element["tags"]] + [
+                    Tag("TruSTAR"),
+                    Tag("Report"),
+                ]
+                indicators = [Indicator.from_dict(i) for i in element["indicators"]]
 
                 event = MISPEvent()
                 event.info = f"TruSTAR Report: {report.title}"
@@ -123,7 +129,7 @@ class TrustarToMisp:
                 event.add_object(obj)
                 event.add_attribute("link", element["deeplink"])
 
-                events.append(event)
+                events.append(event.to_json())
             except KeyError as k:
                 logger.error(f"Missing {k}")
             except Exception as e:
@@ -144,7 +150,7 @@ class TrustarToMisp:
                 obj.add_attribute(indicator.type, indicator.value)
             except Exception as ex:
                 logger.error(f"Failed to transform IOC {indicator} with error {ex}")
-        return obj
+        return obj.to_json()
 
 
 def for_trustar_reports(extracted_data):
@@ -160,10 +166,15 @@ def ts_reports_to_misp_event(extracted_data):
 
 def ts_enclave_ioc_to_misp_attributes(extracted_data: dict):
     try:
-        for k, v in extracted_data.items():
-            obj = TrustarToMisp.iocs_to_misp_attributes(v)
-            extracted_data[k] = obj
-        return extracted_data
+        transformed = []
+        for data in extracted_data:
+            transformed.append(
+                {
+                    "enclave": data["enclave"],
+                    "iocs": TrustarToMisp.iocs_to_misp_attributes(data["iocs"]),
+                }
+            )
+        return transformed
     except Exception as ex:
         logger.error("Failed to transform data")
         logger.exception(ex)

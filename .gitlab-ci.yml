@@ -24,7 +24,7 @@ deploy_staging:
   script:
     - echo "Deploy to Staging environment"
     - pipenv run sam build
-    - pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
+    - pipenv run sam deploy --stack-name "Staging ETL Assembly" --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Staging
   environment:
     name: staging
   only:
@@ -42,7 +42,7 @@ deploy_prod:
   script:
     - echo "Deploy to Production environment"
     - pipenv run sam build
-    - pipenv run sam deploy --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Production
+    - pipenv run sam deploy --stack-name "Production ETL Assembly" --parameter-overrides ParameterKey=EnvironmentName,ParameterValue=Production
   environment:
     name: production
   when: manual

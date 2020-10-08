@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-import codecs
-import pickle
 import importlib
+import json
 from datetime import datetime
-from queue import Queue
+from queue import Empty, Queue
 from typing import Union, List
 
 import boto3
+import sqs_extended_client  # noqa: F401
 
 from core.registry import Job
 from core.logs import get_logger
@@ -31,6 +31,7 @@ class BaseJob:
         if not isinstance(callable_arguments, dict):
             raise TypeError("job_arguments param must be a dict")
         self._callable_arguments = callable_arguments
+        self._callable_path = callable_path
         self._load_job_callable(callable_path)
 
     def run(self):
@@ -38,27 +39,35 @@ class BaseJob:
         return self._job_callable(**self._callable_arguments)
 
     def serialize(self):
-        """Serializes this job
+        """Serializes this job to json string
 
         Returns
         -------
         bytes
             bytes string representation of this job
         """
-        pickled = codecs.encode(pickle.dumps(self), "base64").decode()
-        return pickled
+        serialized = json.dumps(self.as_dict())
+        return serialized
 
-    @staticmethod
-    def deserialize(bytestream: str) -> "Job":
-        """Deserializes the provided bytestream
+    def as_dict(self):
+        raise NotImplementedError
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        raise NotImplementedError
+
+    @classmethod
+    def deserialize(cls, bytestream: str) -> "Job":
+        """Deserializes the provided json_string
 
         Returns
         -------
         Job
             A Job object
         """
-        unpickled = pickle.loads(codecs.decode(bytestream.encode(), "base64"))
-        return unpickled
+        deserialized = json.loads(bytestream)
+        pythonified = cls.from_dict(deserialized)
+        return pythonified
 
     @classmethod
     def build(cls, *args, **kwargs):
@@ -96,6 +105,14 @@ class Extract(BaseJob):
         self.job.last_run = extraction_datetime
         self.job.save()
 
+    def as_dict(self):
+        return {"job": self.job.to_dict()}
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        job = Job.from_dict(source_dict["job"])
+        return cls(job)
+
 
 class Transform(BaseJob):
     """
@@ -122,6 +139,14 @@ class Transform(BaseJob):
             callable_arguments={"extracted_data": self.extracted_data},
         )
 
+    def as_dict(self):
+        return {"job": self.job.to_dict(), "extracted_data": self.extracted_data}
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        job = Job.from_dict(source_dict["job"])
+        return cls(job, source_dict["extracted_data"])
+
 
 class Load(BaseJob):
     """
@@ -143,6 +168,14 @@ class Load(BaseJob):
             callable_path=self.job.template.load, callable_arguments={"job": self},
         )
 
+    def as_dict(self):
+        return {"job": self.job.to_dict(), "transformed_data": self.transformed_data}
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        job = Job.from_dict(source_dict["job"])
+        return cls(job, source_dict["transformed_data"])
+
 
 class AbstractQueue(ABC):
     @abstractmethod
@@ -155,21 +188,33 @@ class AbstractQueue(ABC):
 
 
 class InMemoryQueue(AbstractQueue):
-    def __init__(self):
-        self._q = Queue()
+    def __init__(self, job_type: Union[Extract, Transform, Load]):
+        self._q: Queue = Queue()
+        self.job_type = job_type
 
     def put(self, jobs: List[Union[Extract, Transform, Load]]):
         for j in jobs:
-            self._q.put(j.serialize())
+            self._q.put(j.serialize(), block=False)
 
     def get(self) -> Union[Extract, Transform, Load]:
-        return BaseJob.deserialize(self._q.get())
+        return self.job_type.deserialize(self._q.get(block=False))
 
 
 class SqsQueue(AbstractQueue):
-    def __init__(self, queue_url: str):
+    MESSAGE_POINTER_CLASS = "com.amazon.sqs.javamessaging.MessageS3Pointer"
+
+    def __init__(
+        self,
+        queue_url: str,
+        job_type: Union[Extract, Transform, Load],
+        large_payload_bucket: str = None,
+    ):
         self.queue_url = queue_url
         self.sqs = boto3.client("sqs")
+        self.job_type = job_type
+        if large_payload_bucket:
+            self.sqs.large_payload_support = large_payload_bucket
+            self.sqs.always_through_s3 = True
 
     def put(self, jobs: List[Union[Extract, Transform, Load]]):
         # Send message to SQS queue
@@ -183,16 +228,58 @@ class SqsQueue(AbstractQueue):
             logger.debug(f"Queued {job.job.id} with MessageId {response['MessageId']}")
 
     def get(self) -> Union[Extract, Transform, Load]:
+        response = self.get_raw()
+        message = response["Messages"][0]
+        job = self.build_job(message["Body"])
+        receipt_handle = message["ReceiptHandle"]
+        # Delete received message from queue
+        self.delete_message(receipt_handle)
+        return job
+
+    def build_job(self, message_body):
+        try:
+            deserialized_message = json.loads(message_body)
+        except json.decoder.JSONDecodeError:
+            message_body = message_body.replace("'", '"')
+            deserialized_message = json.loads(message_body)
+        if (
+            isinstance(deserialized_message, list)
+            and len(deserialized_message) == 2
+            and deserialized_message[0] == self.MESSAGE_POINTER_CLASS
+        ):
+            raw_payload = deserialized_message[1]
+            payload = self.get_payload_from_s3(
+                raw_payload["s3BucketName"], raw_payload["s3Key"]
+            )
+            job = self.job_type.deserialize(payload)
+        else:
+            job = self.job_type.deserialize(message_body)
+        return job
+
+    def get_payload_from_s3(self, bucket_name, object_key):
+        """
+        Retrieves the configuration file from the specified bucket,
+        parses the JSON to a list of dicts
+        """
+        s3 = boto3.resource("s3")
+        bucket = s3.Bucket(bucket_name)
+        obj = bucket.Object(key=object_key)
+        logger.debug(f"Getting {bucket}/{obj}")
+        response = obj.get()
+        lines: bytes = response["Body"].read()
+        return lines
+
+    def get_raw(self) -> dict:
         response = self.sqs.receive_message(
             QueueUrl=self.queue_url,
             MaxNumberOfMessages=1,
             MessageAttributeNames=["All"],
             AttributeNames=["ALL"],
         )
+        if "Messages" not in response:
+            raise Empty
+        logger.debug(response)
+        return response
 
-        message = response["Messages"][0]
-        job = BaseJob.deserialize(message["Body"])
-        receipt_handle = message["ReceiptHandle"]
-        # Delete received message from queue
-        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receipt_handle)
-        return job
+    def delete_message(self, receip_handle):
+        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receip_handle)
