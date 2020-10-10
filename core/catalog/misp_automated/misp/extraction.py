@@ -85,7 +85,7 @@ class FeedClient:
                 # Sort data list based on timestamp column. Latest events on top
                 results = sorted(response, key=lambda k: k.timestamp, reverse=True)
             else:
-                logger.warning("Client Error or empty response received")
+                return []
 
         except Exception as ex:
             logger.error(f"Could not query on MISP Client Error: {ex}")
