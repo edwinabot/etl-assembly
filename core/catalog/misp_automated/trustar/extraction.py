@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 from trustar import TruStar, datetime_to_millis
 
@@ -13,6 +14,9 @@ class StationExtractor:
     """
     Light wrapper for extraction methods in the TruSTAR SDK
     """
+
+    FIRST_RUN_TIMEDELTA = timedelta(days=30)
+    MAX_REPORT_COUNT = 10000
 
     def __init__(self, job: Job) -> None:
         self.job = job
@@ -30,25 +34,77 @@ class StationExtractor:
         :return: None
         """
         try:
+            to = datetime.now(timezone.utc)
             since = (
                 self.job.last_run
                 if self.job.last_run
-                else datetime.utcnow() - timedelta(days=30)
+                else datetime.utcnow() - self.FIRST_RUN_TIMEDELTA
             )
-            response = self.client.get_reports(
-                is_enclave=True,
-                from_time=datetime_to_millis(since),
-            )
-            reports = list(response)
+            if (to - since).days:
+                reports = self._consume_all_report_pages_partinioning_timewindow(
+                    since, to
+                )
+            else:
+                reports = self._consume_all_report_pages(since)
             logger.info(f"Got {len(reports)} since {since}")
             return reports
         except Exception as e:
             logger.error(f"Something went wrong: {e}")
 
+    def _consume_all_report_pages_partinioning_timewindow(self, since, to):
+        reports = []
+        timedelta_in_hours = (to - since).days * 24
+        # windows = []
+        # for i in range(0, int(timedelta_in_hours / 12) - 1):
+        #     from_time = since + timedelta(hours=i * 12)
+        #     to_time = from_time + timedelta(hours=12)
+        #     windows.append({"from": from_time, "to": to_time})
+        windows = [
+            {
+                "from": since + timedelta(hours=i * 12),
+                "to": since + timedelta(hours=(i * 12) + 12),
+            }
+            for i in range(0, int(timedelta_in_hours / 12) + 1)
+        ]
+        for window in windows:
+            reports.extend(
+                self._consume_all_report_pages(
+                    window["from"], window["to"], self.MAX_REPORT_COUNT - len(reports)
+                )
+            )
+            if len(reports) >= self.MAX_REPORT_COUNT:
+                break
+        return reports
+
+    def _consume_all_report_pages(self, from_time, to_time=None, max_report_count=None):
+        if not max_report_count:
+            max_report_count = self.MAX_REPORT_COUNT
+        reports = []
+        page = 0
+        there_is_more = True
+        while there_is_more:
+            response = self.client.search_reports_page(
+                enclave_ids=self.job.user_conf.source_conf.get("enclave_ids"),
+                from_time=datetime_to_millis(from_time),
+                to_time=datetime_to_millis(to_time) if to_time else None,
+                page_size=1000,
+                page_number=page,
+            )
+            if response.items:
+                reports.extend(list(response))
+            page += 1
+            if len(reports) >= max_report_count:
+                there_is_more = False
+                reports = reports[:max_report_count]
+            else:
+                there_is_more = response.has_more_pages()
+        return reports
+
     def get_enclave_tags(self, report):
         return list(self.client.get_enclave_tags(report.id))
 
     def get_indicators_for_report(self, report):
+        # increase page size to reduce call number
         return list(self.client.get_indicators_for_report(report.id))
 
     def get_enclave_iocs(self):
