@@ -42,6 +42,7 @@ class StationExtractor:
                 if self.job.last_run
                 else to - self.FIRST_RUN_TIMEDELTA
             )
+            # If time window is at least one day long, partition it.
             if (to - since).days:
                 reports = self._get_reports_partinioning_timewindow(since, to)
             else:
@@ -54,11 +55,15 @@ class StationExtractor:
     def _get_reports_partinioning_timewindow(self, since, to):
         reports = []
         timedelta_in_hours = (to - since).days * 24
+        # break the time window in 12 hours windows
         windows = [
             {
                 "from": since + timedelta(hours=i * 12),
                 "to": since + timedelta(hours=(i * 12) + 12),
             }
+            # Calculate the windows and add one more. Last one will end in the future.
+            # Doing this, we avoid missing reports because
+            # time passes while pulling others.
             for i in range(0, int(timedelta_in_hours / 12) + 1)
         ]
         for window in windows:
@@ -89,11 +94,18 @@ class StationExtractor:
                 reports.extend(response.items)
 
             if not response.items:
+                # stop if there are no more reports
                 there_is_more = False
             elif len(reports) >= max_report_count:
+                # stop if we reached the maximum allowed number of reports
+                logger.debug(
+                    f"Report pull limit reached for "
+                    f"job {self.job.id} {self.job.description}"
+                )
                 there_is_more = False
                 reports = reports[:max_report_count]
             else:
+                # ask the pagination if there are more
                 there_is_more = response.has_more_pages()
             page += 1
         return reports
