@@ -1,4 +1,3 @@
-import sys
 from datetime import datetime, timedelta, timezone
 
 from trustar import TruStar, datetime_to_millis
@@ -27,6 +26,9 @@ class StationExtractor:
         ts_conf.update(self.job.user_conf.source_secrets)
         self.client = TruStar(config=ts_conf)
 
+    def get_current_datetime(self):
+        return datetime.now(timezone.utc)
+
     def get_reports(self):
         """
         Submits a new report to TruSTAR.
@@ -34,16 +36,14 @@ class StationExtractor:
         :return: None
         """
         try:
-            to = datetime.now(timezone.utc)
+            to = self.get_current_datetime()
             since = (
                 self.job.last_run
                 if self.job.last_run
-                else datetime.utcnow() - self.FIRST_RUN_TIMEDELTA
+                else to - self.FIRST_RUN_TIMEDELTA
             )
             if (to - since).days:
-                reports = self._consume_all_report_pages_partinioning_timewindow(
-                    since, to
-                )
+                reports = self._get_reports_partinioning_timewindow(since, to)
             else:
                 reports = self._consume_all_report_pages(since)
             logger.info(f"Got {len(reports)} since {since}")
@@ -51,14 +51,9 @@ class StationExtractor:
         except Exception as e:
             logger.error(f"Something went wrong: {e}")
 
-    def _consume_all_report_pages_partinioning_timewindow(self, since, to):
+    def _get_reports_partinioning_timewindow(self, since, to):
         reports = []
         timedelta_in_hours = (to - since).days * 24
-        # windows = []
-        # for i in range(0, int(timedelta_in_hours / 12) - 1):
-        #     from_time = since + timedelta(hours=i * 12)
-        #     to_time = from_time + timedelta(hours=12)
-        #     windows.append({"from": from_time, "to": to_time})
         windows = [
             {
                 "from": since + timedelta(hours=i * 12),
@@ -91,13 +86,16 @@ class StationExtractor:
                 page_number=page,
             )
             if response.items:
-                reports.extend(list(response))
-            page += 1
-            if len(reports) >= max_report_count:
+                reports.extend(response.items)
+
+            if not response.items:
+                there_is_more = False
+            elif len(reports) >= max_report_count:
                 there_is_more = False
                 reports = reports[:max_report_count]
             else:
                 there_is_more = response.has_more_pages()
+            page += 1
         return reports
 
     def get_enclave_tags(self, report):
