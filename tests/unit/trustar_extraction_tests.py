@@ -3,7 +3,10 @@ import os
 
 import pytest
 
-from core.catalog.misp_automated.trustar.extraction import StationExtractor
+from core.catalog.misp_automated.trustar.extraction import (
+    StationExtractor,
+    pull_reports,
+)
 
 
 def test_get_reports_30_days_time_window(trustar_extraction_job, mocker):
@@ -58,6 +61,18 @@ def test_get_reports_30_minutes_time_window(trustar_extraction_job, mocker):
     assert len(reports) == 24
 
 
+def test_pull_reports(trustar_extraction_job, mocker):
+    mocker.patch(
+        (
+            "core.catalog.misp_automated.trustar"
+            ".extraction.StationExtractor.MAX_REPORT_COUNT"
+        ),
+        new=10,
+    )
+    results = pull_reports(trustar_extraction_job)
+    assert len(results) <= 10
+
+
 @pytest.fixture(scope="function")
 def trustar_extraction_job(mocker, dynamo):
     from core.registry import Job, Template, UserConf
@@ -76,7 +91,8 @@ def trustar_extraction_job(mocker, dynamo):
         return_value={"secret": "destination"},
     )
     mocker.patch(
-        "core.registry.Job.save", new_callable=mocker.MagicMock,
+        "core.registry.Job.save",
+        new_callable=mocker.MagicMock,
     )
 
     template = Template(

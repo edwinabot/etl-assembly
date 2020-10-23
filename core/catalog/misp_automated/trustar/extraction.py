@@ -114,8 +114,24 @@ class StationExtractor:
         return list(self.client.get_enclave_tags(report.id))
 
     def get_indicators_for_report(self, report):
-        # increase page size to reduce call number
-        return list(self.client.get_indicators_for_report(report.id))
+        iocs = []
+        there_is_more = True
+        page = 0
+        while there_is_more:
+            response = self.client.get_indicators_for_report_page(
+                report.id, page_number=page, page_size=1000
+            )
+            if response.items:
+                iocs.extend(response.items)
+            else:
+                there_is_more = False
+                continue
+
+            if not response.has_more_pages():
+                there_is_more = False
+            else:
+                page += 1
+        return iocs
 
     def get_enclave_iocs(self):
         results = []
@@ -164,25 +180,27 @@ def pull_reports(job: Job):
     Pulls all reports since last run from all enclaves
     """
     try:
+        report_deeplink_base = job.user_conf.source_conf["report_deeplink_base"]
+        report_deeplink_base = report_deeplink_base.strip("/")
         extractor = StationExtractor(job)
-        report_deeplink_base = job.user_conf.source_conf["report_deeplink_base"].strip(
-            "/"
-        )
         results = []
 
         reports = extractor.get_reports()
 
         for report in reports:
-            tags = extractor.get_enclave_tags(report)
-            indicators = extractor.get_indicators_for_report(report)
-            results.append(
-                {
-                    "report": report.to_dict(),
-                    "tags": [t.to_dict() for t in tags],
-                    "indicators": [i.to_dict() for i in indicators],
-                    "deeplink": "/".join((report_deeplink_base, report.id)),
-                }
-            )
+            try:
+                tags = extractor.get_enclave_tags(report)
+                indicators = extractor.get_indicators_for_report(report)
+                results.append(
+                    {
+                        "report": report.to_dict(),
+                        "tags": [t.to_dict() for t in tags],
+                        "indicators": [i.to_dict() for i in indicators],
+                        "deeplink": "/".join((report_deeplink_base, report.id)),
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"While processing report {report}: {e}")
 
         return results
     except Exception as ex:
