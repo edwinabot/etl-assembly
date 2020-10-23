@@ -291,6 +291,17 @@ Resources:
       FifoQueue: True
       QueueName: !Sub ${EnvironmentName}-ExtractJobsQueue.fifo
       VisibilityTimeout: 900
+      RedrivePolicy: 
+        deadLetterTargetArn: !GetAtt DeadLetterExtractJobsQueue.Arn
+        maxReceiveCount: 5
+
+  DeadLetterExtractJobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-DeadLetterExtractJobsQueue.fifo
+      VisibilityTimeout: 900
 
   TransformJobsQueue:
     Type: AWS::SQS::Queue
@@ -299,6 +310,17 @@ Resources:
       FifoQueue: True
       QueueName: !Sub ${EnvironmentName}-TransformJobsQueue.fifo
       VisibilityTimeout: 900
+      RedrivePolicy: 
+        deadLetterTargetArn: !GetAtt DeadLetterTransformJobsQueue.Arn
+        maxReceiveCount: 5
+
+  DeadLetterTransformJobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-DeadLetterTransformJobsQueue.fifo
+      VisibilityTimeout: 900
 
   LoadJobsQueue:
     Type: AWS::SQS::Queue
@@ -306,6 +328,17 @@ Resources:
       ContentBasedDeduplication: True
       FifoQueue: True
       QueueName: !Sub ${EnvironmentName}-LoadJobsQueue.fifo
+      VisibilityTimeout: 900
+      RedrivePolicy: 
+        deadLetterTargetArn: !GetAtt DeadLetterLoadJobsQueue.Arn
+        maxReceiveCount: 5
+
+  DeadLetterLoadJobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: True
+      FifoQueue: True
+      QueueName: !Sub ${EnvironmentName}-DeadLetterLoadJobsQueue.fifo
       VisibilityTimeout: 900
 
   TemplatesTable:
