@@ -52,6 +52,10 @@ class StationExtractor:
         except Exception as e:
             logger.error(f"Something went wrong: {e}")
 
+    def is_report_fully_processed(self, report):
+        result = self.client.get_report_status(report)
+        return result["status"] == "SUBMISSION_SUCCESS"
+
     def _get_reports_partinioning_timewindow(self, since, to):
         reports = []
         timedelta_in_hours = (to - since).days * 24
@@ -189,8 +193,12 @@ def pull_reports(job: Job):
 
         for report in reports:
             try:
-                tags = extractor.get_enclave_tags(report)
-                indicators = extractor.get_indicators_for_report(report)
+                if extractor.is_report_fully_processed(report):
+                    tags = extractor.get_enclave_tags(report)
+                    indicators = extractor.get_indicators_for_report(report)
+                else:
+                    tags = []
+                    indicators = []
                 results.append(
                     {
                         "report": report.to_dict(),
