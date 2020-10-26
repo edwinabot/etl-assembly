@@ -19,8 +19,7 @@ pytest-mock = "*"
 [packages]
 boto3 = "*"
 pymisp = "*"
-trustar = "*"
-pympler = "*"
+trustar = "==0.3.34"
 sqs-extended-client = "*"
 
 [requires]
