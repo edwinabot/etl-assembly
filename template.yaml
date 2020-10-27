@@ -280,6 +280,28 @@ Resources:
                 - lambda:RemovePermission
               Resource:
                 - !GetAtt JobCreationFunction.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt ExtractJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
     Metadata:
       BuildMethod: makefile
 
@@ -291,7 +313,7 @@ Resources:
       FifoQueue: True
       QueueName: !Sub ${EnvironmentName}-ExtractJobsQueue.fifo
       VisibilityTimeout: 900
-      RedrivePolicy: 
+      RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterExtractJobsQueue.Arn
         maxReceiveCount: 5
 
@@ -310,7 +332,7 @@ Resources:
       FifoQueue: True
       QueueName: !Sub ${EnvironmentName}-TransformJobsQueue.fifo
       VisibilityTimeout: 900
-      RedrivePolicy: 
+      RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterTransformJobsQueue.Arn
         maxReceiveCount: 5
 
@@ -329,7 +351,7 @@ Resources:
       FifoQueue: True
       QueueName: !Sub ${EnvironmentName}-LoadJobsQueue.fifo
       VisibilityTimeout: 900
-      RedrivePolicy: 
+      RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterLoadJobsQueue.Arn
         maxReceiveCount: 5
 

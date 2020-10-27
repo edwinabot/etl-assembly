@@ -191,5 +191,4 @@ class HistoricalIngestHandler:
         return jobs
 
     def queue_jobs(self, jobs):
-        for job in jobs:
-            self.extraction_queue.put(job)
+        self.extraction_queue.put(jobs)

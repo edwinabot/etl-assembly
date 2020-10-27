@@ -7,13 +7,10 @@ def test_historical_ingest_handler(trustar_extraction_job, mocker):
     mocker.patch(
         ("core.registry.Job.get"), return_value=trustar_extraction_job,
     )
-    history_handler = HistoricalIngestHandler(
-        trustar_extraction_job.id, get_in_memory_queues()
-    )
-    windows = history_handler.create_windows()
-    jobs = history_handler.create_extraction_jobs(windows)
-    assert windows
-    assert jobs
+    queues = get_in_memory_queues()
+    history_handler = HistoricalIngestHandler(trustar_extraction_job.id, queues)
+    history_handler.schedule_jobs()
+    assert queues.extract
 
 
 @pytest.mark.skip(reason="no way of currently testing this")
