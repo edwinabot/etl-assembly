@@ -15,7 +15,7 @@ def lambda_handler(event, context):
     try:
         for _ in range(HISTORY_MESSAGES_RATE):
             job: HistoryExtract = queues.history.get()
-            logger.debug(job)
+            logger.debug(f"Job ID: {job.job.id} - window {job.window}")
             extraction_stage(job, queues.history, is_historical=True)
     except Empty:
         logger.info("No more Historical data to ingest")
