@@ -14,7 +14,7 @@ class StationExtractor:
     Light wrapper for extraction methods in the TruSTAR SDK
     """
 
-    FIRST_RUN_TIMEDELTA = timedelta(days=30)
+    FIRST_RUN_TIMEDELTA = timedelta(minutes=5)
     MAX_REPORT_COUNT = 10000
 
     def __init__(self, job: Job) -> None:
@@ -51,7 +51,7 @@ class StationExtractor:
             if (to - since).days:
                 reports = self._get_reports_partinioning_timewindow(since, to)
             else:
-                reports = self._consume_all_report_pages(since)
+                reports = self._consume_all_report_pages(since, to)
             logger.info(f"Got {len(reports)} since {since}")
             return reports
         except Exception as e:
@@ -85,12 +85,17 @@ class StationExtractor:
         return reports
 
     def _consume_all_report_pages(self, from_time, to_time=None, max_report_count=None):
+        logger.debug(
+            f"Pulling reports from {from_time.isoformat()}"
+            f" to {to_time.isoformat() if to_time else ''}"
+        )
         if not max_report_count:
             max_report_count = self.MAX_REPORT_COUNT
         reports = []
         page = 0
         there_is_more = True
         while there_is_more:
+            logger.debug(f"Polling reports {len(reports)} so far")
             response = self.client.search_reports_page(
                 enclave_ids=self.job.user_conf.source_conf.get("enclave_ids"),
                 from_time=datetime_to_millis(from_time),
@@ -98,12 +103,14 @@ class StationExtractor:
                 page_size=100,
                 page_number=page,
             )
+            logger.debug(response)
             if response.items:
                 reports.extend(response.items)
 
             if not response.items:
                 # stop if there are no more reports
                 there_is_more = False
+                logger.debug("No more items")
             elif len(reports) >= max_report_count:
                 # stop if we reached the maximum allowed number of reports
                 logger.debug(
@@ -112,6 +119,7 @@ class StationExtractor:
                 )
                 there_is_more = False
                 reports = reports[:max_report_count]
+                logger.debug("Max report count reached. Stopping report polling")
             else:
                 # ask the pagination if there are more
                 there_is_more = response.has_more_pages()
@@ -119,24 +127,31 @@ class StationExtractor:
         return reports
 
     def get_enclave_tags(self, report):
+        logger.debug(f"Getting tags for report {report.id}")
         return list(self.client.get_enclave_tags(report.id))
 
     def get_indicators_for_report(self, report):
         iocs = []
         there_is_more = True
         page = 0
+
+        logger.debug(f"Getting IOCs for report {report.id}")
         while there_is_more:
+            logger.debug(f"Polling reports {len(iocs)} so far")
             response = self.client.get_indicators_for_report_page(
                 report.id, page_number=page, page_size=1000
             )
+            logger.debug(response)
             if response.items:
                 iocs.extend(response.items)
             else:
                 there_is_more = False
+                logger.debug(f"No more IOCs for report {report.id} stopping.")
                 continue
 
             if not response.has_more_pages():
                 there_is_more = False
+                logger.debug(f"No more IOCs for report {report.id} stopping.")
             else:
                 page += 1
         return iocs
