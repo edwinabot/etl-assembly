@@ -1,5 +1,19 @@
 import pytest
-from lambdas.cron_scheduler import lambda_handler
+from lambdas.cron_scheduler import lambda_handler, HistoricalIngestHandler
+from core.queues import get_in_memory_queues
+
+
+def test_historical_ingest_handler(trustar_extraction_job, mocker):
+    mocker.patch(
+        ("core.registry.Job.get"), return_value=trustar_extraction_job,
+    )
+    history_handler = HistoricalIngestHandler(
+        trustar_extraction_job.id, get_in_memory_queues()
+    )
+    windows = history_handler.create_windows()
+    jobs = history_handler.create_extraction_jobs(windows)
+    assert windows
+    assert jobs
 
 
 @pytest.mark.skip(reason="no way of currently testing this")

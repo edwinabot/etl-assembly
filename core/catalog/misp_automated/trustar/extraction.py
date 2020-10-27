@@ -36,12 +36,17 @@ class StationExtractor:
         :return: None
         """
         try:
-            to = self.get_current_datetime()
-            since = (
-                self.job.last_run
-                if self.job.last_run
-                else to - self.FIRST_RUN_TIMEDELTA
-            )
+            window = self.job.user_conf.source_conf.get("timewindow", None)
+            if window:
+                to = window["to"]
+                since = window["from"]
+            else:
+                to = self.get_current_datetime()
+                since = (
+                    self.job.last_run
+                    if self.job.last_run
+                    else to - self.FIRST_RUN_TIMEDELTA
+                )
             # If time window is at least one day long, partition it.
             if (to - since).days:
                 reports = self._get_reports_partinioning_timewindow(since, to)
@@ -58,18 +63,17 @@ class StationExtractor:
 
     def _get_reports_partinioning_timewindow(self, since, to):
         reports = []
-        timedelta_in_hours = (to - since).days * 24
-        # break the time window in 12 hours windows
-        windows = [
-            {
-                "from": since + timedelta(hours=i * 12),
-                "to": since + timedelta(hours=(i * 12) + 12),
-            }
-            # Calculate the windows and add one more. Last one will end in the future.
-            # Doing this, we avoid missing reports because
-            # time passes while pulling others.
-            for i in range(0, int(timedelta_in_hours / 12) + 1)
-        ]
+        windows = []
+        generate_more = True
+        last_datetime = to
+        while generate_more and last_datetime > since:
+            right = last_datetime
+            left = last_datetime - timedelta(hours=1)
+            if since > left:
+                left = since
+                generate_more = False
+            last_datetime = left
+            windows.append({"from": left, "to": right})
         for window in windows:
             reports.extend(
                 self._consume_all_report_pages(
@@ -91,7 +95,7 @@ class StationExtractor:
                 enclave_ids=self.job.user_conf.source_conf.get("enclave_ids"),
                 from_time=datetime_to_millis(from_time),
                 to_time=datetime_to_millis(to_time) if to_time else None,
-                page_size=1000,
+                page_size=100,
                 page_number=page,
             )
             if response.items:

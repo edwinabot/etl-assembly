@@ -1,4 +1,7 @@
+from core.etl import Extract
 import json
+
+from datetime import datetime, timedelta, timezone
 
 import boto3
 import botocore
@@ -8,6 +11,7 @@ from enum import Enum
 from core import config
 from core.logs import get_logger
 from core.registry import Job
+from core.queues import get_sqs_queues
 
 
 logger = get_logger(__name__)
@@ -36,12 +40,16 @@ def lambda_handler(event, context):
 
 
 def handle_insert(record, events, lambdas):
+    job_id = record["dynamodb"]["Keys"]["id"]["S"]
     handler = DynamoInsertHandler()
+    history_handler = HistoricalIngestHandler(job_id, get_sqs_queues())
     handler(record, events, lambdas)
+    history_handler.schedule_jobs()
 
 
 def handle_modify(record, events, lambdas):
-    handle_insert(record, events, lambdas)
+    handler = DynamoInsertHandler()
+    handler(record, events, lambdas)
 
 
 def get_rule_name(job_id: str):
@@ -145,3 +153,43 @@ class DynamoRemoveHandler:
 
     def delete_eventbridge_rule(self, rule_name):
         self.events.delete_rule(Name=rule_name)
+
+
+class HistoricalIngestHandler:
+    def __init__(self, job_id: str, queues) -> None:
+        now = datetime.now(tz=timezone.utc)
+        self.now = now
+        self.since = now - timedelta(days=30)
+        self.job = Job.get(job_id)
+        self.extraction_queue = queues.extract
+
+    def schedule_jobs(self):
+        time_windows = self.create_windows()
+        jobs = self.create_extraction_jobs(time_windows)
+        self.queue_jobs(jobs)
+
+    def create_windows(self):
+        windows = []
+        generate_more = True
+        last_datetime = self.now
+        while generate_more and last_datetime > self.since:
+            right = last_datetime
+            left = last_datetime - timedelta(minutes=15)
+            if self.since > left:
+                left = self.since
+                generate_more = False
+            last_datetime = left
+            windows.append({"from": left, "to": right})
+        return windows
+
+    def create_extraction_jobs(self, timewindows):
+        jobs = []
+        for window in timewindows:
+            extraction = Extract(self.job)
+            extraction.job.user_conf.source_conf["timewindow"] = window
+            jobs.append(extraction)
+        return jobs
+
+    def queue_jobs(self, jobs):
+        for job in jobs:
+            self.extraction_queue.put(job)
