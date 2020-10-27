@@ -16,6 +16,8 @@ try:
     USER_CONF_TABLE = os.getenv("USER_CONF_TABLE", "etl_assembly_user_configs")
     TEMPLATES_TABLE = os.getenv("TEMPLATES_TABLE", "etl_assembly_templates")
     EXTRACT_JOBS_QUEUE = os.getenv("EXTRACT_JOBS_QUEUE", None)
+    HISTORY_JOBS_QUEUE = os.getenv("HISTORY_JOBS_QUEUE", None)
+    HISTORY_MESSAGES_RATE = int(os.getenv("HISTORY_MESSAGES_RATE", "3"))
     TRANSFORM_JOBS_QUEUE = os.getenv("TRANSFORM_JOBS_QUEUE", None)
     LOAD_JOBS_QUEUE = os.getenv("LOAD_JOBS_QUEUE", None)
     BIG_PAYLOADS_BUCKET = os.getenv("BIG_PAYLOADS_BUCKET", None)

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from core import config
 from core.etl import (
+    HistoryExtract,
     InMemoryQueue,
     Extract,
     SqsQueue,
@@ -14,6 +15,7 @@ class SqsQueues:
     extract: SqsQueue
     transform: SqsQueue
     load: SqsQueue
+    history: SqsQueue
 
 
 @dataclass
@@ -21,6 +23,7 @@ class InMemoryQueues:
     extract: InMemoryQueue
     transform: InMemoryQueue
     load: InMemoryQueue
+    history: InMemoryQueue
 
 
 def get_sqs_queues():
@@ -39,11 +42,17 @@ def get_sqs_queues():
         job_type=Load,
         large_payload_bucket=config.BIG_PAYLOADS_BUCKET,
     )
-    return SqsQueues(extract_jobs, transform_jobs, load_jobs)
+    history_jobs = SqsQueue(
+        queue_url=config.HISTORY_JOBS_QUEUE,
+        job_type=HistoryExtract,
+        large_payload_bucket=config.BIG_PAYLOADS_BUCKET,
+    )
+    return SqsQueues(extract_jobs, transform_jobs, load_jobs, history_jobs)
 
 
 def get_in_memory_queues():
     extract_jobs = InMemoryQueue(job_type=Extract)
     transform_jobs = InMemoryQueue(job_type=Transform)
     load_jobs = InMemoryQueue(job_type=Load)
-    return InMemoryQueues(extract_jobs, transform_jobs, load_jobs)
+    history_jobs = InMemoryQueue(job_type=Extract)
+    return InMemoryQueues(extract_jobs, transform_jobs, load_jobs, history_jobs)

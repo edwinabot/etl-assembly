@@ -1,4 +1,4 @@
-from core.etl import Extract
+from core.etl import Extract, HistoryExtract
 import json
 
 from datetime import datetime, timedelta, timezone
@@ -161,7 +161,7 @@ class HistoricalIngestHandler:
         self.now = now
         self.since = now - timedelta(days=30)
         self.job = Job.get(job_id)
-        self.extraction_queue = queues.extract
+        self.extraction_queue = queues.history
 
     def schedule_jobs(self):
         time_windows = self.create_windows()
@@ -185,8 +185,7 @@ class HistoricalIngestHandler:
     def create_extraction_jobs(self, timewindows):
         jobs = []
         for window in timewindows:
-            extraction = Extract(self.job)
-            extraction.job.user_conf.source_conf["timewindow"] = window
+            extraction = HistoryExtract(self.job, window)
             jobs.append(extraction)
         return jobs
 

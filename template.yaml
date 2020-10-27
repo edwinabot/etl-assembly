@@ -27,8 +27,10 @@ Globals:
         EXTRACT_JOBS_QUEUE: !Ref ExtractJobsQueue
         TRANSFORM_JOBS_QUEUE: !Ref TransformJobsQueue
         LOAD_JOBS_QUEUE: !Ref LoadJobsQueue
+        HISTORY_JOBS_QUEUE: !Ref HistoryJobQueue
+        HISTORY_MESSAGES_RATE: 3
         BIG_PAYLOADS_BUCKET: !Sub ${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket
-        LOGLEVEL: INFO
+        LOGLEVEL: DEBUG
 
 Resources:
   EtlAssemblyCoreLayer:
@@ -128,6 +130,69 @@ Resources:
           Properties:
             Queue: !GetAtt ExtractJobsQueue.Arn
             BatchSize: 1
+    Metadata:
+      BuildMethod: makefile
+
+  HistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: historical_extraction.lambda_handler
+      FunctionName: !Sub ${EnvironmentName}-HistoryFunction
+      Layers:
+        - Ref: EtlAssemblyCoreLayer
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !GetAtt JobTable.Arn
+                - !GetAtt TemplatesTable.Arn
+                - !GetAtt UserConfTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt JobTable.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt TransformJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+                - sqs:ReceiveMessage
+              Resource:
+                - !GetAtt HistoryJobQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+      Events:
+        Scheduling:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+
     Metadata:
       BuildMethod: makefile
 
@@ -286,7 +351,7 @@ Resources:
               Action:
                 - sqs:SendMessage
               Resource:
-                - !GetAtt ExtractJobsQueue.Arn
+                - !GetAtt HistoryJobQueue.Arn
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
@@ -402,3 +467,18 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+
+  HistoryJobQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: !Sub ${EnvironmentName}-HistoryJobQueue
+        VisibilityTimeout: 900
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt DLHistoryJobQueue.Arn
+          maxReceiveCount: 3
+
+  DLHistoryJobQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${EnvironmentName}-DLHistoryJobQueue
+      VisibilityTimeout: 900

@@ -114,6 +114,42 @@ class Extract(BaseJob):
         return cls(job)
 
 
+class HistoryExtract(Extract):
+    def __init__(self, job: Job, window: dict):
+        """
+        Params
+        ------
+        job : Job
+            The job configuration
+        window: dict
+            a time window composed a tz aware from datetime to datetime
+            {"from": somedatetime, "to": someotherdatetime}
+        """
+        if ("from", "to") in window:
+            raise ValueError("window param must contain 'from' and 'to' keys")
+        super().__init__(job)
+        self.window = window
+        self.job.user_conf.source_conf["timewindow"] = window
+
+    def as_dict(self):
+        return {
+            "job": self.job.to_dict(),
+            "window": {
+                "from": self.window.get("from").isoformat(),
+                "to": self.window.get("to").isoformat(),
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        job = Job.from_dict(source_dict["job"])
+        window = {
+            "from": datetime.fromisoformat(source_dict["window"]["from"]),
+            "to": datetime.fromisoformat(source_dict["window"]["to"]),
+        }
+        return cls(job, window)
+
+
 class Transform(BaseJob):
     """
     This is for perform Transformation on the extracted
@@ -206,7 +242,7 @@ class SqsQueue(AbstractQueue):
     def __init__(
         self,
         queue_url: str,
-        job_type: Union[Extract, Transform, Load],
+        job_type: Union[Extract, Transform, Load, HistoryExtract],
         large_payload_bucket: str = None,
     ):
         self.queue_url = queue_url
@@ -216,7 +252,7 @@ class SqsQueue(AbstractQueue):
             self.sqs.large_payload_support = large_payload_bucket
             self.sqs.always_through_s3 = True
 
-    def put(self, jobs: List[Union[Extract, Transform, Load]]):
+    def put(self, jobs: List[Union[Extract, Transform, Load, HistoryExtract]]):
         # Send message to SQS queue
         for job in jobs:
             serialized_job = job.serialize()
@@ -225,7 +261,7 @@ class SqsQueue(AbstractQueue):
             )
             logger.debug(f"Queued {job.job.id} with MessageId {response['MessageId']}")
 
-    def get(self) -> Union[Extract, Transform, Load]:
+    def get(self) -> Union[Extract, Transform, Load, HistoryExtract]:
         response = self.get_raw()
         message = response["Messages"][0]
         job = self.build_job(message["Body"])
@@ -280,4 +316,9 @@ class SqsQueue(AbstractQueue):
         return response
 
     def delete_message(self, receip_handle):
-        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receip_handle)
+        try:
+            self.sqs.delete_message(
+                QueueUrl=self.queue_url, ReceiptHandle=receip_handle
+            )
+        except Exception as ex:
+            logger.warning(ex)
