@@ -12,6 +12,6 @@ def lambda_handler(event, context):
     queues = get_sqs_queues()
     for record in event["Records"]:
         serialized_job = record["body"]
-        job = Extract.deserialize(serialized_job)
+        job: Extract = queues.extract.build_job(serialized_job)
         extraction_stage(job, queues.transform)
-        queues.extract.delete_message(record['receiptHandle'])
+        queues.extract.delete_message(record["receiptHandle"])

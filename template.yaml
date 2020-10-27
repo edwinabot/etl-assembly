@@ -309,9 +309,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html
-      ContentBasedDeduplication: True
-      FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-ExtractJobsQueue.fifo
+      QueueName: !Sub ${EnvironmentName}-ExtractJobsQueue
       VisibilityTimeout: 900
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterExtractJobsQueue.Arn
@@ -320,17 +318,13 @@ Resources:
   DeadLetterExtractJobsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      ContentBasedDeduplication: True
-      FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-DeadLetterExtractJobsQueue.fifo
+      QueueName: !Sub ${EnvironmentName}-DeadLetterExtractJobsQueue
       VisibilityTimeout: 900
 
   TransformJobsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      ContentBasedDeduplication: True
-      FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-TransformJobsQueue.fifo
+      QueueName: !Sub ${EnvironmentName}-TransformJobsQueue
       VisibilityTimeout: 900
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterTransformJobsQueue.Arn
@@ -339,17 +333,13 @@ Resources:
   DeadLetterTransformJobsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      ContentBasedDeduplication: True
-      FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-DeadLetterTransformJobsQueue.fifo
+      QueueName: !Sub ${EnvironmentName}-DeadLetterTransformJobsQueue
       VisibilityTimeout: 900
 
   LoadJobsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      ContentBasedDeduplication: True
-      FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-LoadJobsQueue.fifo
+      QueueName: !Sub ${EnvironmentName}-LoadJobsQueue
       VisibilityTimeout: 900
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterLoadJobsQueue.Arn
@@ -358,9 +348,7 @@ Resources:
   DeadLetterLoadJobsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      ContentBasedDeduplication: True
-      FifoQueue: True
-      QueueName: !Sub ${EnvironmentName}-DeadLetterLoadJobsQueue.fifo
+      QueueName: !Sub ${EnvironmentName}-DeadLetterLoadJobsQueue
       VisibilityTimeout: 900
 
   TemplatesTable:

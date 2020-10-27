@@ -221,9 +221,7 @@ class SqsQueue(AbstractQueue):
         for job in jobs:
             serialized_job = job.serialize()
             response = self.sqs.send_message(
-                QueueUrl=self.queue_url,
-                MessageBody=serialized_job,
-                MessageGroupId="assembly-messages",
+                QueueUrl=self.queue_url, MessageBody=serialized_job
             )
             logger.debug(f"Queued {job.job.id} with MessageId {response['MessageId']}")
 
