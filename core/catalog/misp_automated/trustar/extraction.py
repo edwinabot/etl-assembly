@@ -155,6 +155,15 @@ class StationExtractor:
                 page += 1
         return iocs
 
+    def get_iocs_metadata(self, iocs: list):
+        try:
+            result = self.client.get_indicators_metadata(iocs)
+            return result
+        except Exception as e:
+            logger.warning("Failed to retrieve iocs metadata")
+            logger.warning(e)
+            return iocs
+
     def get_enclave_iocs(self):
         results = []
         # Prepare enclave ids list
@@ -214,6 +223,7 @@ def pull_reports(job: Job):
                 if extractor.is_report_fully_processed(report):
                     tags = extractor.get_enclave_tags(report)
                     indicators = extractor.get_indicators_for_report(report)
+                    indicators = extractor.get_iocs_metadata(indicators)
                 else:
                     tags = []
                     indicators = []

@@ -169,7 +169,9 @@ class TrustarToMisp:
                                 value=indicator.value,
                                 type=ENTITY_TYPE_MAPPINGS.get(indicator.type),
                             )
-
+                        for tag in indicator.tags:
+                            attr.add_tag(tag.name)
+                            logger.debug(f"{tag.name} added to attribute")
                         event.attributes.append(attr)
                     except Exception as ex:
                         logger.warning(
