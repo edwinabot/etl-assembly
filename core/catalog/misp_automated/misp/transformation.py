@@ -85,16 +85,20 @@ class MispToTrustar:
 ENTITY_TYPE_MAPPINGS = {
     "BITCOIN_ADDRESS": "btc",
     "CIDR_BLOCK": "ip-src",
+    "COMMENTS": "text",
     "CVE": "vulnerability",
-    "URL": "url",
     "EMAIL_ADDRESS": "email-src",
-    "SOFTWARE": "filename",
+    "INDICATOR_SUMMARY": "text",
     "IP": "ip-src",
     "MALWARE": "malware-type",
     "MD5": "md5",
     "REGISTRY_KEY": "regkey",
+    "REPORT_LINK": "link",
     "SHA1": "sha1",
     "SHA256": "sha256",
+    "SOFTWARE": "filename",
+    "URL": "url",
+    "THREAT_ACTOR": "threat-actor",
 }
 
 
@@ -128,7 +132,9 @@ class TrustarToMisp:
                 except Exception as e:
                     logger.warning(f"Failed parsing dates for report {report.id}")
                     logger.warning(e)
-                    event.from_dict(info=f"TruSTAR Report: {report.title}",)
+                    event.from_dict(
+                        info=f"TruSTAR Report: {report.title}",
+                    )
                 logger.debug(f"Generating a MISP event for {event.info}")
 
                 # Get tags for report
