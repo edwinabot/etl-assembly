@@ -11,7 +11,11 @@ def lambda_handler(event, context):
     logger.debug(context)
     queues = get_sqs_queues()
     for record in event["Records"]:
-        serialized_job = record["body"]
-        job: Transform = queues.transform.build_job(serialized_job)
-        transformation_stage(job, queues.load)
-        queues.transform.delete_message(record["receiptHandle"])
+        try:
+            serialized_job = record["body"]
+            job: Transform = queues.transform.build_job(serialized_job)
+            transformation_stage(job, queues.load)
+            queues.transform.delete_message(record["receiptHandle"])
+        except Exception as e:
+            logger.error(record)
+            logger.exception(e)

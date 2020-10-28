@@ -36,7 +36,11 @@ def lambda_handler(event, context):
         DynamoEvent.REMOVE.value: handle_remove,
     }
     for record in event.get("Records", []):
-        handlers[record["eventName"]](record, events, lambdas)
+        try:
+            handlers[record["eventName"]](record, events, lambdas)
+        except Exception as e:
+            logger.error(record)
+            logger.exception(e)
 
 
 def handle_insert(record, events, lambdas):

@@ -18,4 +18,4 @@ def lambda_handler(event, context):
             logger.debug(f"Job ID: {job.job.id} - window {job.window}")
             extraction_stage(job, queues.history, is_historical=True)
     except Empty:
-        logger.info("No more Historical data to ingest")
+        logger.info("No Historical data to ingest")
