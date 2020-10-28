@@ -44,7 +44,9 @@ class FeedClient:
                 f"Searching MISP Events from {since.isoformat()} to {to.isoformat()}"
             )
             response = misp_conn.search(
-                date_from=since, date_to=to, tag=not_this_tags, pythonify=True,
+                timestamp=(since, to),
+                tag=not_this_tags,
+                pythonify=True,
             )
         except PyMISPError as pyexe:
             logger.error(f"MISP Communication Error : {pyexe}")

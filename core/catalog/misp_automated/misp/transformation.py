@@ -113,21 +113,19 @@ class TrustarToMisp:
                     logger.debug(f"{tag.name} added to event")
 
                 # Create MISP TruSTAR object to add indicators to event
-                logger.debug(f"Generating a MISP object for {event.info}")
-                obj = MISPObject("trustar_report", standalone=False, strict=True)
+                logger.debug(f"Adding deeplink ro {event.info}")
+                event.add_attribute("link", element["deeplink"])
 
                 # Get indicators for report
-                logger.debug(f"Adding indicators for {event.info} to MISP object")
+                logger.debug(f"Adding indicators to {event.info}")
                 for indicator in indicators:
                     try:
-                        obj.add_attribute(indicator.type, indicator.value)
+                        event.add_attribute(indicator.type, indicator.value)
                     except Exception as ex:
                         logger.warning(
                             f"Failed to transform TruSTAR Indicator "
                             f"to MISP Attribute {ex}"
                         )
-                event.add_object(obj)
-                event.add_attribute("link", element["deeplink"])
 
                 events.append(event.to_json())
             except KeyError as k:
