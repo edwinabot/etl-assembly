@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import importlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from queue import Empty, Queue
 from typing import Union, List
 
@@ -224,15 +224,15 @@ class AbstractQueue(ABC):
 
 
 class InMemoryQueue(AbstractQueue):
-    def __init__(self, job_type: Union[Extract, Transform, Load]):
+    def __init__(self, job_type: Union[Extract, Transform, Load, HistoryExtract]):
         self._q: Queue = Queue()
         self.job_type = job_type
 
-    def put(self, jobs: List[Union[Extract, Transform, Load]]):
+    def put(self, jobs: List[Union[Extract, Transform, Load, HistoryExtract]]):
         for j in jobs:
             self._q.put(j.serialize(), block=False)
 
-    def get(self) -> Union[Extract, Transform, Load]:
+    def get(self) -> Union[Extract, Transform, Load, HistoryExtract]:
         return self.job_type.deserialize(self._q.get(block=False))
 
 
@@ -322,3 +322,41 @@ class SqsQueue(AbstractQueue):
             )
         except Exception as ex:
             logger.warning(ex)
+
+
+class HistoricalIngestHandler:
+    def __init__(self, job_id: str, queues) -> None:
+        now = datetime.now(tz=timezone.utc)
+        self.now = now
+        self.since = now - timedelta(days=30)
+        self.job = Job.get(job_id)
+        self.extraction_queue = queues.history
+
+    def schedule_jobs(self):
+        time_windows = self.create_windows()
+        jobs = self.create_extraction_jobs(time_windows)
+        self.queue_jobs(jobs)
+
+    def create_windows(self):
+        windows = []
+        generate_more = True
+        last_datetime = self.now
+        while generate_more and last_datetime > self.since:
+            right = last_datetime
+            left = last_datetime - timedelta(minutes=15)
+            if self.since > left:
+                left = self.since
+                generate_more = False
+            last_datetime = left
+            windows.append({"from": left, "to": right})
+        return windows
+
+    def create_extraction_jobs(self, timewindows):
+        jobs = []
+        for window in timewindows:
+            extraction = HistoryExtract(self.job, window)
+            jobs.append(extraction)
+        return jobs
+
+    def queue_jobs(self, jobs):
+        self.extraction_queue.put(jobs)

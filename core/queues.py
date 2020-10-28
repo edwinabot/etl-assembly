@@ -54,5 +54,5 @@ def get_in_memory_queues():
     extract_jobs = InMemoryQueue(job_type=Extract)
     transform_jobs = InMemoryQueue(job_type=Transform)
     load_jobs = InMemoryQueue(job_type=Load)
-    history_jobs = InMemoryQueue(job_type=Extract)
+    history_jobs = InMemoryQueue(job_type=HistoryExtract)
     return InMemoryQueues(extract_jobs, transform_jobs, load_jobs, history_jobs)

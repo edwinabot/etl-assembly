@@ -1,7 +1,5 @@
-from core.etl import Extract, HistoryExtract
 import json
 
-from datetime import datetime, timedelta, timezone
 
 import boto3
 import botocore
@@ -12,6 +10,7 @@ from core import config
 from core.logs import get_logger
 from core.registry import Job
 from core.queues import get_sqs_queues
+from core.etl import HistoricalIngestHandler
 
 
 logger = get_logger(__name__)
@@ -157,41 +156,3 @@ class DynamoRemoveHandler:
 
     def delete_eventbridge_rule(self, rule_name):
         self.events.delete_rule(Name=rule_name)
-
-
-class HistoricalIngestHandler:
-    def __init__(self, job_id: str, queues) -> None:
-        now = datetime.now(tz=timezone.utc)
-        self.now = now
-        self.since = now - timedelta(days=30)
-        self.job = Job.get(job_id)
-        self.extraction_queue = queues.history
-
-    def schedule_jobs(self):
-        time_windows = self.create_windows()
-        jobs = self.create_extraction_jobs(time_windows)
-        self.queue_jobs(jobs)
-
-    def create_windows(self):
-        windows = []
-        generate_more = True
-        last_datetime = self.now
-        while generate_more and last_datetime > self.since:
-            right = last_datetime
-            left = last_datetime - timedelta(minutes=15)
-            if self.since > left:
-                left = self.since
-                generate_more = False
-            last_datetime = left
-            windows.append({"from": left, "to": right})
-        return windows
-
-    def create_extraction_jobs(self, timewindows):
-        jobs = []
-        for window in timewindows:
-            extraction = HistoryExtract(self.job, window)
-            jobs.append(extraction)
-        return jobs
-
-    def queue_jobs(self, jobs):
-        self.extraction_queue.put(jobs)
