@@ -12,10 +12,13 @@ def lambda_handler(event, context):
     logger.debug(event)
     logger.debug(context)
     queues = get_sqs_queues()
-    try:
-        for _ in range(HISTORY_MESSAGES_RATE):
+    for _ in range(HISTORY_MESSAGES_RATE):
+        try:
             job: HistoryExtract = queues.history.get()
             logger.debug(f"Job ID: {job.job.id} - window {job.window}")
             extraction_stage(job, queues.history, is_historical=True)
-    except Empty:
-        logger.info("No Historical data to ingest")
+        except Empty:
+            logger.info("No Historical data to ingest")
+            break
+        except Exception as e:
+            logger.error(e)
