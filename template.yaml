@@ -68,6 +68,21 @@ Resources:
                 - sqs:SendMessage
               Resource:
                 - !GetAtt ExtractJobsQueue.Arn
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "arn:aws:s3:::${EnvironmentName}-trustar-etl-assembly-bigpayloadsbucket/*"
     Metadata:
       BuildMethod: makefile
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pymisp import PyMISP, PyMISPError
 
 from core.registry import Job
@@ -28,8 +28,8 @@ class FeedClient:
 
         return misp_conn
 
-    def query_misp(self, misp_conn: PyMISP, since: datetime):
-        """ Pull data from the MISP API and return response.
+    def query_misp(self, misp_conn: PyMISP, since: datetime, to: datetime):
+        """Pull data from the MISP API and return response.
 
         :param interval: time interval (e.g - 24h, 240m, 30.6m, etc)
         :return response: response data
@@ -40,8 +40,11 @@ class FeedClient:
             not_this_tags = misp_conn.build_complex_query(
                 not_parameters=["Enclave", "TruSTAR"]
             )
+            logger.debug(
+                f"Searching MISP Events from {since.isoformat()} to {to.isoformat()}"
+            )
             response = misp_conn.search(
-                timestamp=since, tag=not_this_tags, pythonify=True,
+                date_from=since, date_to=to, tag=not_this_tags, pythonify=True,
             )
         except PyMISPError as pyexe:
             logger.error(f"MISP Communication Error : {pyexe}")
@@ -67,6 +70,9 @@ class FeedClient:
             results = response["response"]
         return results
 
+    def get_current_datetime(self):
+        return datetime.now(timezone.utc)
+
     def pull_feeds(self):
         """
         Pulls MISP Events.
@@ -76,10 +82,22 @@ class FeedClient:
         results = None
         try:
             misp_client = self.get_misp_client()
-            since = self.job.last_run if self.job.last_run else "30d"
+            window = self.job.user_conf.source_conf.get("timewindow", None)
+            if window:
+                logger.debug(f"Got time window: {window}")
+                since = window["from"]
+                to = window["to"]
+            else:
+                now = self.get_current_datetime()
+                since = (
+                    self.job.last_run
+                    if self.job.last_run
+                    else now - timedelta(minutes=5)
+                )
+                to = now
 
             # Fetch MISP events data
-            response = self.query_misp(misp_client, since)
+            response = self.query_misp(misp_client, since, to)
             if response:
                 results = self.clean_response(response)
                 # Sort data list based on timestamp column. Latest events on top
