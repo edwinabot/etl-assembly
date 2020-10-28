@@ -24,7 +24,13 @@ class StationLoader:
         :return: None
         """
         try:
-            response = self.client.submit_report(report)
+            if (
+                self.client.get_report_status(report).get("status")
+                == "SUBMISSION_SUCCESS"
+            ):
+                response = self.client.update_report(report)
+            else:
+                response = self.client.submit_report(report)
             logger.info(f"Report submitted successfuly, got ID: {response.id}")
         except HTTPError as e:
             logger.error(f"Something went wrong: {e}")

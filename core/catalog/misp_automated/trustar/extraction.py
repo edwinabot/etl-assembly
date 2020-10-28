@@ -95,7 +95,6 @@ class StationExtractor:
         page = 0
         there_is_more = True
         while there_is_more:
-            logger.debug(f"Polling reports {len(reports)} so far")
             response = self.client.search_reports_page(
                 enclave_ids=self.job.user_conf.source_conf.get("enclave_ids"),
                 from_time=datetime_to_millis(from_time),
@@ -119,11 +118,11 @@ class StationExtractor:
                 )
                 there_is_more = False
                 reports = reports[:max_report_count]
-                logger.debug("Max report count reached. Stopping report polling")
             else:
                 # ask the pagination if there are more
                 there_is_more = response.has_more_pages()
             page += 1
+        logger.debug(f"Pulled {len(reports)}")
         return reports
 
     def get_enclave_tags(self, report):
