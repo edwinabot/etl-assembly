@@ -42,8 +42,7 @@ def job_creation_stage(config_id: str, queue: AbstractQueue) -> None:
 def extraction_stage(extract_job: Extract, queue: AbstractQueue, is_historical=False):
     # Perform an extraction
     logger.debug(f"Starting extraction stage job {extract_job.job.id}")
-    current_run_datetime = datetime.now(timezone.utc)
-    extracted_data = run_extraction_job(extract_job)
+    extracted_data, to_datetime = run_extraction_job(extract_job)
     if not extracted_data:
         logger.info(
             f"Job ID {extract_job.job.id} ({extract_job.job.name}): no new data"
@@ -52,7 +51,7 @@ def extraction_stage(extract_job: Extract, queue: AbstractQueue, is_historical=F
         transform_jobs = create_transformation_job(extract_job, extracted_data)
         queue.put(transform_jobs)
     if not is_historical:
-        extract_job.update_extraction_datetime(current_run_datetime)
+        extract_job.update_extraction_datetime(to_datetime)
 
 
 def transformation_stage(transform_job: Transform, queue: AbstractQueue) -> None:

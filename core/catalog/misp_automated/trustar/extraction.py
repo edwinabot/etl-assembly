@@ -14,7 +14,7 @@ class StationExtractor:
     Light wrapper for extraction methods in the TruSTAR SDK
     """
 
-    FIRST_RUN_TIMEDELTA = timedelta(minutes=5)
+    TIME_DELTA = timedelta(minutes=5)
     MAX_REPORT_COUNT = 10000
 
     def __init__(self, job: Job) -> None:
@@ -41,17 +41,15 @@ class StationExtractor:
                 to = window["to"]
                 since = window["from"]
             else:
+                # If there is no timewindow build one of 5 minutes or less
                 to = self.get_current_datetime()
-                since = (
-                    self.job.last_run
-                    if self.job.last_run
-                    else to - self.FIRST_RUN_TIMEDELTA
-                )
-            # If time window is at least one day long, partition it.
-            if (to - since).days:
-                reports = self._get_reports_partinioning_timewindow(since, to)
-            else:
-                reports = self._consume_all_report_pages(since, to)
+                since = self.job.last_run
+                if not since:
+                    since = to - self.TIME_DELTA
+                elif (to - since) > timedelta(minutes=5):
+                    to = since + self.TIME_DELTA
+
+            reports = self.consume_all_report_pages(since, to)
             logger.info(f"Got {len(reports)} since {since}")
 
             # https://docs.trustar.co/api/v13/reports/get_report_details.html
@@ -65,7 +63,7 @@ class StationExtractor:
                 except Exception as e:
                     logger.warning(e)
                     results.append(report)
-            return results
+            return results, to
         except Exception as e:
             logger.error(e)
 
@@ -73,30 +71,7 @@ class StationExtractor:
         result = self.client.get_report_status(report)
         return result["status"] == "SUBMISSION_SUCCESS"
 
-    def _get_reports_partinioning_timewindow(self, since, to):
-        reports = []
-        windows = []
-        generate_more = True
-        last_datetime = to
-        while generate_more and last_datetime > since:
-            right = last_datetime
-            left = last_datetime - timedelta(hours=1)
-            if since > left:
-                left = since
-                generate_more = False
-            last_datetime = left
-            windows.append({"from": left, "to": right})
-        for window in windows:
-            reports.extend(
-                self._consume_all_report_pages(
-                    window["from"], window["to"], self.MAX_REPORT_COUNT - len(reports)
-                )
-            )
-            if len(reports) >= self.MAX_REPORT_COUNT:
-                break
-        return reports
-
-    def _consume_all_report_pages(self, from_time, to_time=None, max_report_count=None):
+    def consume_all_report_pages(self, from_time, to_time=None, max_report_count=None):
         logger.debug(
             f"Pulling reports from {from_time.isoformat()}"
             f" to {to_time.isoformat() if to_time else ''}"
@@ -225,7 +200,8 @@ def pull_reports(job: Job):
         extractor = StationExtractor(job)
         results = []
 
-        reports = extractor.get_reports()
+        # TODO: validate that user has read access for the enclaves
+        reports, to_datetime = extractor.get_reports()
 
         for report in reports:
             try:
@@ -247,7 +223,8 @@ def pull_reports(job: Job):
             except Exception as e:
                 logger.warning(f"While processing report {report}: {e}")
 
-        return results
+
+        return results, to_datetime
     except Exception as ex:
         logger.error(f"Failed to extract repors for job {job.id}")
         raise ex
@@ -256,6 +233,7 @@ def pull_reports(job: Job):
 def pull_enclaves_iocs(job: Job):
     try:
         extractor = StationExtractor(job)
+        # TODO: validate that user has read access for the enclaves
         results = extractor.get_enclave_iocs()
         return results
     except Exception as ex:
