@@ -53,9 +53,21 @@ class StationExtractor:
             else:
                 reports = self._consume_all_report_pages(since, to)
             logger.info(f"Got {len(reports)} since {since}")
-            return reports
+
+            # https://docs.trustar.co/api/v13/reports/get_report_details.html
+            results = []
+            logger.debug("Getting reports details")
+            for report in reports:
+                try:
+                    logger.debug(f"Getting details for report {report.id}")
+                    full_report = self.client.get_report_details(report.id)
+                    results.append(full_report)
+                except Exception as e:
+                    logger.warning(e)
+                    results.append(report)
+            return results
         except Exception as e:
-            logger.error(f"Something went wrong: {e}")
+            logger.error(e)
 
     def is_report_fully_processed(self, report):
         result = self.client.get_report_status(report)
@@ -102,7 +114,6 @@ class StationExtractor:
                 page_size=100,
                 page_number=page,
             )
-            logger.debug(response)
             if response.items:
                 reports.extend(response.items)
 
@@ -136,11 +147,9 @@ class StationExtractor:
 
         logger.debug(f"Getting IOCs for report {report.id}")
         while there_is_more:
-            logger.debug(f"Polling reports {len(iocs)} so far")
             response = self.client.get_indicators_for_report_page(
                 report.id, page_number=page, page_size=1000
             )
-            logger.debug(response)
             if response.items:
                 iocs.extend(response.items)
             else:

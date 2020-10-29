@@ -122,29 +122,32 @@ class TrustarToMisp:
                 ]
                 indicators = [Indicator.from_dict(i) for i in element["indicators"]]
 
+                logger.debug(f"Generating a MISP event for {report.id}")
                 event = MISPEvent()
+                event_dict = {
+                    "timestamp": report.created / 1000 if report.created else None,
+                    "info": f"TruSTAR Report: {report.title}",
+                }
                 try:
-                    event.from_dict(
-                        timestamp=report.created / 1000 if report.created else None,
-                        info=f"TruSTAR Report: {report.title}",
-                    )
+                    event.from_dict(**event_dict)
                     event.date = event.timestamp.date()
                 except Exception as e:
                     logger.warning(f"Failed parsing dates for report {report.id}")
                     logger.warning(e)
-                    event.from_dict(
-                        info=f"TruSTAR Report: {report.title}",
-                    )
-                logger.debug(f"Generating a MISP event for {event.info}")
+                    event_dict.pop("timestamp")
+                    event.from_dict(**event_dict)
+
+                logger.debug(f"Adding deeplink ro {event.info}")
+                event.add_attribute(
+                    ENTITY_TYPE_MAPPINGS.get("REPORT_LINK"), element["deeplink"]
+                )
+                logger.debug(f"Adding report body ro {event.info}")
+                event.add_attribute(ENTITY_TYPE_MAPPINGS.get("COMMENTS"), report.body)
 
                 # Get tags for report
                 for tag in tags:
                     event.add_tag(tag.name)
                     logger.debug(f"{tag.name} added to event")
-
-                # Create MISP TruSTAR object to add indicators to event
-                logger.debug(f"Adding deeplink ro {event.info}")
-                event.add_attribute("link", element["deeplink"])
 
                 # Get indicators for report
                 logger.debug(f"Adding indicators to {event.info}")
