@@ -144,7 +144,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt ExtractJobsQueue.Arn
-            BatchSize: 1
+            BatchSize: 5
     Metadata:
       BuildMethod: makefile
 
@@ -262,7 +262,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt TransformJobsQueue.Arn
-            BatchSize: 1
+            BatchSize: 10
     Metadata:
       BuildMethod: makefile
 
@@ -311,7 +311,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt LoadJobsQueue.Arn
-            BatchSize: 1
+            BatchSize: 5
     Metadata:
       BuildMethod: makefile
 
