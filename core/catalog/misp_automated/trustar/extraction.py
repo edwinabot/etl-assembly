@@ -223,7 +223,6 @@ def pull_reports(job: Job):
             except Exception as e:
                 logger.warning(f"While processing report {report}: {e}")
 
-
         return results, to_datetime
     except Exception as ex:
         logger.error(f"Failed to extract repors for job {job.id}")

@@ -29,7 +29,7 @@ class InMemoryQueues:
 def get_sqs_queues():
     extract_jobs = SqsQueue(
         queue_url=config.EXTRACT_JOBS_QUEUE,
-        job_type=Extract,
+        job_type=HistoryExtract,
         large_payload_bucket=config.BIG_PAYLOADS_BUCKET,
     )
     transform_jobs = SqsQueue(
@@ -51,7 +51,7 @@ def get_sqs_queues():
 
 
 def get_in_memory_queues():
-    extract_jobs = InMemoryQueue(job_type=Extract)
+    extract_jobs = InMemoryQueue(job_type=HistoryExtract)
     transform_jobs = InMemoryQueue(job_type=Transform)
     load_jobs = InMemoryQueue(job_type=Load)
     history_jobs = InMemoryQueue(job_type=HistoryExtract)

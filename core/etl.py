@@ -102,8 +102,9 @@ class Extract(BaseJob):
         self.job = job
 
     def update_extraction_datetime(self, extraction_datetime: datetime):
-        self.job.last_run = extraction_datetime
-        self.job.save()
+        if self.job.last_run < extraction_datetime:
+            self.job.last_run = extraction_datetime
+            self.job.save()
 
     def as_dict(self):
         return {"job": self.job.to_dict()}

@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any, Union
 
 from core.etl import (
     AbstractQueue,
+    HistoryExtract,
     InMemoryQueue,
     SqsQueue,
     Extract,
@@ -35,8 +36,8 @@ def main(job_id, queue: Union[InMemoryQueue, SqsQueue]) -> None:
 
 
 def job_creation_stage(config_id: str, queue: AbstractQueue) -> None:
-    extract_job = create_extraction_job(config_id)
-    queue.put([extract_job])
+    extract_jobs = create_extraction_jobs(config_id)
+    queue.put(extract_jobs)
 
 
 def extraction_stage(extract_job: Extract, queue: AbstractQueue, is_historical=False):
@@ -73,7 +74,7 @@ def loading_stage(load_job: Load) -> None:
     run_loading_job(load_job)
 
 
-def create_extraction_job(config_id: str) -> Extract:
+def create_extraction_jobs(config_id: str) -> Extract:
     """
     Creates an Extract job out of a Job ID
 
@@ -86,11 +87,31 @@ def create_extraction_job(config_id: str) -> Extract:
     logger.debug(f"Retrieving job config {config_id}")
     base_job = Job.get(_id=config_id)
 
+    delta = 5
+    tdelta = timedelta(minutes=delta)
+    to = datetime.now(timezone.utc)
+    since = base_job.last_run
+    if not since:
+        since = to - tdelta
+    elif (to - since) > tdelta:
+        to = since + tdelta
+
     # Build an Extract job
     # queue for extraction
     logger.debug(f"Building an Extract job using config {config_id}")
-    extract_job = Extract.build(base_job)
-    return extract_job
+    extract_jobs = []
+    for i in range(delta):
+        start = since + timedelta(minutes=i)
+        stop = since + timedelta(minutes=i + 1)
+        if to < stop:
+            break
+        window = {
+            "from": start,
+            "to": stop,
+        }
+        ej = HistoryExtract.build(base_job, window)
+        extract_jobs.append(ej)
+    return extract_jobs
 
 
 def run_extraction_job(extract_job: Extract) -> Any:
