@@ -24,17 +24,41 @@ class StationLoader:
         :return: None
         """
         try:
-            status = self.client.get_report_status(report)
+            # try to find by external ID
+            existing_report = self.client.get_report_details(
+                report.external_id, "external"
+            )
+        except HTTPError as ex:
+            logger.warning(ex)
+            existing_report = None
+
+        try:
+            # try to get the submission status
+            status = (
+                self.client.get_report_status(existing_report)
+                if existing_report
+                else self.client.get_report_status(report)
+            )
         except HTTPError as ex:
             logger.warning(ex)
             status = None
 
         try:
-            if status and status.get("status", "UNKNOWN") == "SUBMISSION_SUCCESS":
-                response = self.client.update_report(report)
-            else:
-                response = self.client.submit_report(report)
-            logger.info(f"Report submitted successfuly, got ID: {response.id}")
+            # try submitting
+            submission_result = self.client.submit_report(report)
+            logger.info(f"Report submitted successfuly, got ID: {submission_result.id}")
+            try_updating = False if submission_result.id else True
+        except Exception as ex:
+            logger.info(f"Submission failed, tryiing updating: {ex}")
+            try_updating = True
+
+        try:
+            # try to update or submit
+            if (
+                status and status.get("status", "UNKNOWN") == "SUBMISSION_SUCCESS"
+            ) or try_updating:
+                update_result = self.client.update_report(report)
+                logger.info(f"Report submitted successfuly, got ID: {update_result.id}")
         except HTTPError as e:
             logger.error(e)
 
