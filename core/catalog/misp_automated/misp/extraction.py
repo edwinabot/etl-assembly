@@ -3,6 +3,7 @@ from pymisp import PyMISP, PyMISPError
 
 from core.registry import Job
 from core.logs import get_logger
+from core.config import TIMEWINDOW_SIZE
 
 
 logger = get_logger(__name__)
@@ -11,7 +12,7 @@ MAX_PULL_REPORTS = 500
 
 
 class FeedClient:
-    TIME_DELTA = timedelta(minutes=5)
+    TIME_DELTA = timedelta(minutes=TIMEWINDOW_SIZE)
 
     def __init__(self, job: Job) -> None:
         self.job = job
@@ -46,9 +47,7 @@ class FeedClient:
                 f"Searching MISP Events from {since.isoformat()} to {to.isoformat()}"
             )
             response = misp_conn.search(
-                timestamp=(since, to),
-                tag=not_this_tags,
-                pythonify=True,
+                timestamp=(since, to), tag=not_this_tags, pythonify=True,
             )
         except PyMISPError as pyexe:
             logger.error(f"MISP Communication Error : {pyexe}")
@@ -97,7 +96,7 @@ class FeedClient:
                 since = self.job.last_run
                 if not since:
                     since = to - self.TIME_DELTA
-                elif (to - since) > timedelta(minutes=5):
+                elif (to - since) > timedelta(minutes=TIMEWINDOW_SIZE):
                     to = since + self.TIME_DELTA
 
             # Fetch MISP events data

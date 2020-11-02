@@ -4,6 +4,7 @@ from trustar import TruStar, datetime_to_millis
 
 from core.registry import Job
 from core.logs import get_logger
+from core.config import TIMEWINDOW_SIZE
 
 
 logger = get_logger(__name__)
@@ -14,7 +15,7 @@ class StationExtractor:
     Light wrapper for extraction methods in the TruSTAR SDK
     """
 
-    TIME_DELTA = timedelta(minutes=5)
+    TIME_DELTA = timedelta(minutes=TIMEWINDOW_SIZE)
     MAX_REPORT_COUNT = 10000
 
     def __init__(self, job: Job) -> None:
@@ -46,7 +47,7 @@ class StationExtractor:
                 since = self.job.last_run
                 if not since:
                     since = to - self.TIME_DELTA
-                elif (to - since) > timedelta(minutes=5):
+                elif (to - since) > timedelta(minutes=TIMEWINDOW_SIZE):
                     to = since + self.TIME_DELTA
 
             reports = self.consume_all_report_pages(since, to)

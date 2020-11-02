@@ -1,4 +1,5 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
+from math import floor
 from typing import Any, Union
 
 from core.etl import (
@@ -12,6 +13,7 @@ from core.etl import (
     Job,
 )
 from core.logs import get_logger
+from core.config import TIMEWINDOW_SIZE
 
 logger = get_logger(__name__)
 
@@ -87,20 +89,18 @@ def create_extraction_jobs(config_id: str) -> Extract:
     logger.debug(f"Retrieving job config {config_id}")
     base_job = Job.get(_id=config_id)
 
-    delta = 5
-    tdelta = timedelta(minutes=delta)
     to = datetime.now(timezone.utc)
     since = base_job.last_run
     if not since:
-        since = to - tdelta
-    elif (to - since) > tdelta:
-        to = since + tdelta
+        since = to - timedelta(minutes=TIMEWINDOW_SIZE)
+
+    windows_amount = floor(((to - since).seconds / 60) / TIMEWINDOW_SIZE)
 
     # Build an Extract job
     # queue for extraction
     logger.debug(f"Building an Extract job using config {config_id}")
     extract_jobs = []
-    for i in range(delta):
+    for i in range(windows_amount):
         start = since + timedelta(minutes=i)
         stop = since + timedelta(minutes=i + 1)
         if to < stop:
