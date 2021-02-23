@@ -1,4 +1,5 @@
 from typing import Union
+from datetime import datetime, timezone
 
 import requests
 
@@ -10,7 +11,7 @@ logger = get_logger(__name__)
 
 def do_something(job: Union[Extract, Transform, Load]):
     logger.info(f"Performed {job.__class__.__name__}")
-    return [{"foo": 1, "bar": 2}]
+    return [{"foo": 1, "bar": 2}], datetime.now(timezone.utc)
 
 
 def do_some_extraction(job: Union[Extract, Transform, Load]):
