@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import importlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from queue import Empty, Queue
 from typing import Union, List
 
@@ -102,8 +102,9 @@ class Extract(BaseJob):
         self.job = job
 
     def update_extraction_datetime(self, extraction_datetime: datetime):
-        self.job.last_run = extraction_datetime
-        self.job.save()
+        if self.job.last_run < extraction_datetime:
+            self.job.last_run = extraction_datetime
+            self.job.save()
 
     def as_dict(self):
         return {"job": self.job.to_dict()}
@@ -112,6 +113,42 @@ class Extract(BaseJob):
     def from_dict(cls, source_dict):
         job = Job.from_dict(source_dict["job"])
         return cls(job)
+
+
+class HistoryExtract(Extract):
+    def __init__(self, job: Job, window: dict):
+        """
+        Params
+        ------
+        job : Job
+            The job configuration
+        window: dict
+            a time window composed a tz aware from datetime to datetime
+            {"from": somedatetime, "to": someotherdatetime}
+        """
+        if ("from", "to") in window:
+            raise ValueError("window param must contain 'from' and 'to' keys")
+        super().__init__(job)
+        self.window = window
+        self.job.user_conf.source_conf["timewindow"] = window
+
+    def as_dict(self):
+        return {
+            "job": self.job.to_dict(),
+            "window": {
+                "from": self.window.get("from").isoformat(),
+                "to": self.window.get("to").isoformat(),
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, source_dict):
+        job = Job.from_dict(source_dict["job"])
+        window = {
+            "from": datetime.fromisoformat(source_dict["window"]["from"]),
+            "to": datetime.fromisoformat(source_dict["window"]["to"]),
+        }
+        return cls(job, window)
 
 
 class Transform(BaseJob):
@@ -188,15 +225,15 @@ class AbstractQueue(ABC):
 
 
 class InMemoryQueue(AbstractQueue):
-    def __init__(self, job_type: Union[Extract, Transform, Load]):
+    def __init__(self, job_type: Union[Extract, Transform, Load, HistoryExtract]):
         self._q: Queue = Queue()
         self.job_type = job_type
 
-    def put(self, jobs: List[Union[Extract, Transform, Load]]):
+    def put(self, jobs: List[Union[Extract, Transform, Load, HistoryExtract]]):
         for j in jobs:
             self._q.put(j.serialize(), block=False)
 
-    def get(self) -> Union[Extract, Transform, Load]:
+    def get(self) -> Union[Extract, Transform, Load, HistoryExtract]:
         return self.job_type.deserialize(self._q.get(block=False))
 
 
@@ -206,7 +243,7 @@ class SqsQueue(AbstractQueue):
     def __init__(
         self,
         queue_url: str,
-        job_type: Union[Extract, Transform, Load],
+        job_type: Union[Extract, Transform, Load, HistoryExtract],
         large_payload_bucket: str = None,
     ):
         self.queue_url = queue_url
@@ -216,18 +253,16 @@ class SqsQueue(AbstractQueue):
             self.sqs.large_payload_support = large_payload_bucket
             self.sqs.always_through_s3 = True
 
-    def put(self, jobs: List[Union[Extract, Transform, Load]]):
+    def put(self, jobs: List[Union[Extract, Transform, Load, HistoryExtract]]):
         # Send message to SQS queue
         for job in jobs:
             serialized_job = job.serialize()
             response = self.sqs.send_message(
-                QueueUrl=self.queue_url,
-                MessageBody=serialized_job,
-                MessageGroupId="assembly-messages",
+                QueueUrl=self.queue_url, MessageBody=serialized_job
             )
             logger.debug(f"Queued {job.job.id} with MessageId {response['MessageId']}")
 
-    def get(self) -> Union[Extract, Transform, Load]:
+    def get(self) -> Union[Extract, Transform, Load, HistoryExtract]:
         response = self.get_raw()
         message = response["Messages"][0]
         job = self.build_job(message["Body"])
@@ -282,4 +317,47 @@ class SqsQueue(AbstractQueue):
         return response
 
     def delete_message(self, receip_handle):
-        self.sqs.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receip_handle)
+        try:
+            self.sqs.delete_message(
+                QueueUrl=self.queue_url, ReceiptHandle=receip_handle
+            )
+        except Exception as ex:
+            logger.warning(ex)
+
+
+class HistoricalIngestHandler:
+    def __init__(self, job_id: str, queues) -> None:
+        now = datetime.now(tz=timezone.utc)
+        self.now = now
+        self.since = now - timedelta(days=30)
+        self.job = Job.get(job_id)
+        self.extraction_queue = queues.history
+
+    def schedule_jobs(self):
+        time_windows = self.create_windows()
+        jobs = self.create_extraction_jobs(time_windows)
+        self.queue_jobs(jobs)
+
+    def create_windows(self):
+        windows = []
+        generate_more = True
+        last_datetime = self.now
+        while generate_more and last_datetime > self.since:
+            right = last_datetime
+            left = last_datetime - timedelta(minutes=15)
+            if self.since > left:
+                left = self.since
+                generate_more = False
+            last_datetime = left
+            windows.append({"from": left, "to": right})
+        return windows
+
+    def create_extraction_jobs(self, timewindows):
+        jobs = []
+        for window in timewindows:
+            extraction = HistoryExtract(self.job, window)
+            jobs.append(extraction)
+        return jobs
+
+    def queue_jobs(self, jobs):
+        self.extraction_queue.put(jobs)

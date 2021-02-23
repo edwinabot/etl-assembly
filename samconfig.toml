@@ -3,9 +3,9 @@ version = 0.1
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "ETL-Assembly-Development"
-s3_bucket = "sourcebucket-trustar-etl-assembly"
-s3_prefix = "development"
 region = "us-east-1"
 capabilities = "CAPABILITY_NAMED_IAM"
-parameter_overrides = "EnvironmentName=\"Development\""
-tags = "application=\"etl-assembly\"
+parameter_overrides = "EnvironmentName=\"development\""
+tags = "application=\"etl-assembly\""
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-o8t9iqzubhru"
+s3_prefix = "ETL-Assembly-Development"

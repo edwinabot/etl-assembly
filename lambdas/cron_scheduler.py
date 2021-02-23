@@ -1,5 +1,6 @@
 import json
 
+
 import boto3
 import botocore
 
@@ -8,6 +9,8 @@ from enum import Enum
 from core import config
 from core.logs import get_logger
 from core.registry import Job
+from core.queues import get_sqs_queues
+from core.etl import HistoricalIngestHandler
 
 
 logger = get_logger(__name__)
@@ -32,16 +35,24 @@ def lambda_handler(event, context):
         DynamoEvent.REMOVE.value: handle_remove,
     }
     for record in event.get("Records", []):
-        handlers[record["eventName"]](record, events, lambdas)
+        try:
+            handlers[record["eventName"]](record, events, lambdas)
+        except Exception as e:
+            logger.error(record)
+            logger.exception(e)
 
 
 def handle_insert(record, events, lambdas):
+    job_id = record["dynamodb"]["Keys"]["id"]["S"]
     handler = DynamoInsertHandler()
+    history_handler = HistoricalIngestHandler(job_id, get_sqs_queues())
     handler(record, events, lambdas)
+    history_handler.schedule_jobs()
 
 
 def handle_modify(record, events, lambdas):
-    handle_insert(record, events, lambdas)
+    handler = DynamoInsertHandler()
+    handler(record, events, lambdas)
 
 
 def get_rule_name(job_id: str):
