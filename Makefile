@@ -7,6 +7,9 @@ build-TransformFunction:
 build-ExtractionFunction:
 	cp lambdas/extraction.py "$(ARTIFACTS_DIR)"
 
+build-HistoryFunction:
+	cp lambdas/historical_extraction.py "$(ARTIFACTS_DIR)"
+
 build-JobCreationFunction:
 	cp lambdas/job_creation.py "$(ARTIFACTS_DIR)"
 

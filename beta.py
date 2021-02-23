@@ -2,14 +2,13 @@
 This module is for exploring the implementation of the ETL thing
 """
 import argparse
+import queue
+from core.registry import Job
 from queue import Empty
+from datetime import datetime, timezone, timedelta
 
 from core.logs import get_logger
-from core.etl import (
-    Extract,
-    Transform,
-    Load,
-)
+from core.etl import Extract, Transform, Load, HistoricalIngestHandler, HistoryExtract
 from core.queues import get_in_memory_queues
 from core.assembly import (
     extraction_stage,
@@ -51,18 +50,22 @@ if __name__ == "__main__":
     # CloudWatch events scheduling
 
     queues = get_in_memory_queues()
-    extract_jobs = queues.extract
-    transform_jobs = queues.transform
-    load_jobs = queues.load
 
-    job_creation_stage(args.job_id, extract_jobs)
-
+    job_creation_stage(args.job_id, queues.extract)
+    """
+    # job_creation_stage(args.job_id, queues.extract)
+    job = Job.get(args.job_id)
+    to = datetime(2020, 10, 27, 18, 0, 0, 0, timezone.utc)
+    hist_job = Extract(job, {"from": to - timedelta(hours=2), "to": to})
+    queues.history.put([hist_job])
+    keep_going = True
+    """
     keep_going = True
     while keep_going:
         try:
             logger.debug("Retrieving Extract job")
-            extract_job = extract_jobs.get()  # type: Extract
-            extraction_stage(extract_job, transform_jobs)
+            extract_job = queues.extract.get()
+            extraction_stage(extract_job, queues.transform)
         except Empty:
             logger.debug("No more stuff to Extract")
             keep_going = False
@@ -71,8 +74,8 @@ if __name__ == "__main__":
     while keep_going:
         try:
             logger.debug("Retrieving Transform job")
-            transform_job = transform_jobs.get()  # type: Transform
-            transformation_stage(transform_job, load_jobs)
+            transform_job = queues.transform.get()  # type: Transform
+            transformation_stage(transform_job, queues.load)
         except Empty:
             logger.debug("No more stuff to Transform")
             keep_going = False
@@ -81,7 +84,7 @@ if __name__ == "__main__":
     while keep_going:
         try:
             logger.debug("Retrieving Load job")
-            load_job = load_jobs.get()  # type: Load
+            load_job = queues.load.get()  # type: Load
             loading_stage(load_job)
         except Empty:
             logger.debug("No more stuff to Load")

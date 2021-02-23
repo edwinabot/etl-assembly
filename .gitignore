@@ -241,3 +241,4 @@ $RECYCLE.BIN/
 tests/*.json
 !tests/fixture.json
 core/foo.json
+.aws-sam/build.toml

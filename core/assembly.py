@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from math import floor
 from typing import Any, Union
 
 from core.etl import (
     AbstractQueue,
+    HistoryExtract,
     InMemoryQueue,
     SqsQueue,
     Extract,
@@ -11,6 +13,7 @@ from core.etl import (
     Job,
 )
 from core.logs import get_logger
+from core.config import TIMEWINDOW_SIZE
 
 logger = get_logger(__name__)
 
@@ -35,15 +38,14 @@ def main(job_id, queue: Union[InMemoryQueue, SqsQueue]) -> None:
 
 
 def job_creation_stage(config_id: str, queue: AbstractQueue) -> None:
-    extract_job = create_extraction_job(config_id)
-    queue.put([extract_job])
+    extract_jobs = create_extraction_jobs(config_id)
+    queue.put(extract_jobs)
 
 
-def extraction_stage(extract_job: Extract, queue: AbstractQueue):
+def extraction_stage(extract_job: Extract, queue: AbstractQueue, is_historical=False):
     # Perform an extraction
     logger.debug(f"Starting extraction stage job {extract_job.job.id}")
-    current_run_datetime = datetime.now(timezone.utc)
-    extracted_data = run_extraction_job(extract_job)
+    extracted_data, to_datetime = run_extraction_job(extract_job)
     if not extracted_data:
         logger.info(
             f"Job ID {extract_job.job.id} ({extract_job.job.name}): no new data"
@@ -51,7 +53,8 @@ def extraction_stage(extract_job: Extract, queue: AbstractQueue):
     else:
         transform_jobs = create_transformation_job(extract_job, extracted_data)
         queue.put(transform_jobs)
-    extract_job.update_extraction_datetime(current_run_datetime)
+    if not is_historical:
+        extract_job.update_extraction_datetime(to_datetime)
 
 
 def transformation_stage(transform_job: Transform, queue: AbstractQueue) -> None:
@@ -73,7 +76,7 @@ def loading_stage(load_job: Load) -> None:
     run_loading_job(load_job)
 
 
-def create_extraction_job(config_id: str) -> Extract:
+def create_extraction_jobs(config_id: str) -> Extract:
     """
     Creates an Extract job out of a Job ID
 
@@ -86,11 +89,29 @@ def create_extraction_job(config_id: str) -> Extract:
     logger.debug(f"Retrieving job config {config_id}")
     base_job = Job.get(_id=config_id)
 
+    to = datetime.now(timezone.utc)
+    since = base_job.last_run
+    if not since:
+        since = to - timedelta(minutes=TIMEWINDOW_SIZE)
+
+    windows_amount = floor(((to - since).seconds / 60) / TIMEWINDOW_SIZE)
+
     # Build an Extract job
     # queue for extraction
     logger.debug(f"Building an Extract job using config {config_id}")
-    extract_job = Extract.build(base_job)
-    return extract_job
+    extract_jobs = []
+    for i in range(windows_amount):
+        start = since + timedelta(minutes=i)
+        stop = since + timedelta(minutes=i + 1)
+        if to < stop:
+            break
+        window = {
+            "from": start,
+            "to": stop,
+        }
+        ej = HistoryExtract.build(base_job, window)
+        extract_jobs.append(ej)
+    return extract_jobs
 
 
 def run_extraction_job(extract_job: Extract) -> Any:

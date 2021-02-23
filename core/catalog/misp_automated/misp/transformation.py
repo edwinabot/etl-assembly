@@ -1,5 +1,5 @@
 from trustar import Report, Tag, Indicator
-from pymisp import MISPEvent, MISPObject
+from pymisp import MISPEvent, MISPObject, MISPAttribute
 
 from core.logs import get_logger
 
@@ -82,6 +82,26 @@ class MispToTrustar:
         return list(attribute_tags)
 
 
+ENTITY_TYPE_MAPPINGS = {
+    "BITCOIN_ADDRESS": "btc",
+    "CIDR_BLOCK": "ip-src",
+    "COMMENTS": "text",
+    "CVE": "vulnerability",
+    "EMAIL_ADDRESS": "email-src",
+    "INDICATOR_SUMMARY": "text",
+    "IP": "ip-src",
+    "MALWARE": "malware-type",
+    "MD5": "md5",
+    "REGISTRY_KEY": "regkey",
+    "REPORT_LINK": "link",
+    "SHA1": "sha1",
+    "SHA256": "sha256",
+    "SOFTWARE": "filename",
+    "URL": "url",
+    "THREAT_ACTOR": "threat-actor",
+}
+
+
 class TrustarToMisp:
     @staticmethod
     def reports_to_misp_events(extracted_reports):
@@ -93,7 +113,6 @@ class TrustarToMisp:
         # Iterate through each TruSTAR report and create MISP events for each
         for element in extracted_reports:
             try:
-
                 logger.info(f"Tranforming {element['report']['id']}")
                 # Initialize and set MISPEvent()
                 report = Report.from_dict(element["report"])
@@ -103,31 +122,65 @@ class TrustarToMisp:
                 ]
                 indicators = [Indicator.from_dict(i) for i in element["indicators"]]
 
+                logger.debug(f"Generating a MISP event for {report.id}")
                 event = MISPEvent()
-                event.info = f"TruSTAR Report: {report.title}"
-                logger.debug(f"Generating a MISP event for {event.info}")
+                event_dict = {
+                    "timestamp": report.created / 1000 if report.created else None,
+                    "info": f"TruSTAR Report: {report.title}",
+                }
+                try:
+                    event.from_dict(**event_dict)
+                    event.date = event.timestamp.date()
+                except Exception as e:
+                    logger.warning(f"Failed parsing dates for report {report.id}")
+                    logger.warning(e)
+                    event_dict.pop("timestamp")
+                    event.from_dict(**event_dict)
+
+                logger.debug(f"Adding deeplink ro {event.info}")
+                event.add_attribute(
+                    ENTITY_TYPE_MAPPINGS.get("REPORT_LINK"), element["deeplink"]
+                )
+                logger.debug(f"Adding report body ro {event.info}")
+                event.add_attribute(ENTITY_TYPE_MAPPINGS.get("COMMENTS"), report.body)
 
                 # Get tags for report
                 for tag in tags:
                     event.add_tag(tag.name)
                     logger.debug(f"{tag.name} added to event")
 
-                # Create MISP TruSTAR object to add indicators to event
-                logger.debug(f"Generating a MISP object for {event.info}")
-                obj = MISPObject("trustar_report", standalone=False, strict=True)
-
                 # Get indicators for report
-                logger.debug(f"Adding indicators for {event.info} to MISP object")
+                logger.debug(f"Adding indicators to {event.info}")
                 for indicator in indicators:
                     try:
-                        obj.add_attribute(indicator.type, indicator.value)
+                        attr = MISPAttribute()
+                        try:
+                            attr.from_dict(
+                                value=indicator.value,
+                                type=ENTITY_TYPE_MAPPINGS.get(indicator.type),
+                                first_seen=indicator.first_seen / 1000
+                                if indicator.first_seen
+                                else None,
+                                last_seen=indicator.last_seen / 1000
+                                if indicator.last_seen
+                                else None,
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed parsing dates for IOC {indicator}")
+                            logger.warning(e)
+                            attr.from_dict(
+                                value=indicator.value,
+                                type=ENTITY_TYPE_MAPPINGS.get(indicator.type),
+                            )
+                        for tag in indicator.tags:
+                            attr.add_tag(tag.name)
+                            logger.debug(f"{tag.name} added to attribute")
+                        event.attributes.append(attr)
                     except Exception as ex:
                         logger.warning(
                             f"Failed to transform TruSTAR Indicator "
                             f"to MISP Attribute {ex}"
                         )
-                event.add_object(obj)
-                event.add_attribute("link", element["deeplink"])
 
                 events.append(event.to_json())
             except KeyError as k:
