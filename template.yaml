@@ -19,6 +19,7 @@ Globals:
     Timeout: 900
     MemorySize: 512
     Runtime: python3.8
+    ReservedConcurrentExecutions: 10
     Environment:
       Variables:
         JOB_TABLE: !Sub ${EnvironmentName}-JobTable
