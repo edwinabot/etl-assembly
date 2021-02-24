@@ -110,7 +110,7 @@ class FeedClient:
 
         except Exception as ex:
             logger.error(f"Could not query on MISP Client Error: {ex}")
-            raise ex
+            return [], to
         else:
             return [r.to_json() for r in results], to
 

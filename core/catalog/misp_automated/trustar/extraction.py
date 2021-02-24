@@ -36,6 +36,9 @@ class StationExtractor:
         :param report: a Report object
         :return: None
         """
+        to = None
+        since = None
+        results = []
         try:
             window = self.job.user_conf.source_conf.get("timewindow", None)
             if window:
@@ -54,7 +57,6 @@ class StationExtractor:
             logger.info(f"Got {len(reports)} since {since}")
 
             # https://docs.trustar.co/api/v13/reports/get_report_details.html
-            results = []
             logger.debug("Getting reports details")
             for report in reports:
                 try:
@@ -64,9 +66,10 @@ class StationExtractor:
                 except Exception as e:
                     logger.warning(e)
                     results.append(report)
-            return results, to
         except Exception as e:
             logger.error(e)
+        finally:
+            return results, to
 
     def is_report_fully_processed(self, report):
         result = self.client.get_report_status(report)
