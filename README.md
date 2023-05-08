@@ -1,4 +1,6 @@
-# ETL Assembly
+# [ARCHIVED] ETL Assembly
+
+NOTE: this was a POC built as a means to make a case in favor of other purpose built tool. Later on, AWS Glue was chosen over this implementation
 
 ## MISP automated flow POC
 
